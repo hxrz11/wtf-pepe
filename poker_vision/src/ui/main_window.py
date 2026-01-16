@@ -62,13 +62,13 @@ class MainWindow(QMainWindow):
         # Mode selection buttons
         mode_layout = QHBoxLayout()
 
-        self.screenshot_btn = QPushButton("Screenshots")
+        self.screenshot_btn = QPushButton("Скриншоты")
         self.screenshot_btn.clicked.connect(lambda: self.switch_mode(0))
 
-        self.cutting_btn = QPushButton("Cutting")
+        self.cutting_btn = QPushButton("Нарезка")
         self.cutting_btn.clicked.connect(lambda: self.switch_mode(1))
 
-        self.labeling_btn = QPushButton("Labeling")
+        self.labeling_btn = QPushButton("Разметка")
         self.labeling_btn.clicked.connect(lambda: self.switch_mode(2))
 
         mode_layout.addWidget(self.screenshot_btn)
@@ -92,12 +92,12 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.stack)
 
         # Settings button
-        settings_btn = QPushButton("Settings")
+        settings_btn = QPushButton("Настройки")
         settings_btn.clicked.connect(self.open_settings)
         main_layout.addWidget(settings_btn)
 
         # Status bar
-        self.statusBar().showMessage("Ready")
+        self.statusBar().showMessage("Готов")
 
         # Set initial mode
         self.switch_mode(0)
@@ -116,7 +116,7 @@ class MainWindow(QMainWindow):
             btn.setEnabled(i != mode_index)
 
         # Update status
-        mode_names = ["Screenshot Mode", "Cutting Mode", "Labeling Mode"]
+        mode_names = ["Режим скриншотов", "Режим нарезки", "Режим разметки"]
         self.statusBar().showMessage(mode_names[mode_index])
 
         # Notify mode widgets

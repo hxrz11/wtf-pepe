@@ -26,7 +26,7 @@ class SettingsDialog(QDialog):
 
     def setup_ui(self):
         """Setup user interface."""
-        self.setWindowTitle("Settings")
+        self.setWindowTitle("Настройки")
         self.setMinimumWidth(400)
 
         layout = QVBoxLayout(self)
@@ -36,28 +36,28 @@ class SettingsDialog(QDialog):
 
         # Window title
         self.window_title_edit = QLineEdit()
-        form.addRow("Game Window Title:", self.window_title_edit)
+        form.addRow("Заголовок окна игры:", self.window_title_edit)
 
         # Window size
         self.window_width_spin = QSpinBox()
         self.window_width_spin.setMinimum(100)
         self.window_width_spin.setMaximum(3840)
         self.window_width_spin.setSingleStep(10)
-        form.addRow("Window Width:", self.window_width_spin)
+        form.addRow("Ширина окна:", self.window_width_spin)
 
         self.window_height_spin = QSpinBox()
         self.window_height_spin.setMinimum(100)
         self.window_height_spin.setMaximum(2160)
         self.window_height_spin.setSingleStep(10)
-        form.addRow("Window Height:", self.window_height_spin)
+        form.addRow("Высота окна:", self.window_height_spin)
 
         # Screenshot interval
         self.interval_spin = QSpinBox()
         self.interval_spin.setMinimum(500)
         self.interval_spin.setMaximum(10000)
         self.interval_spin.setSingleStep(500)
-        self.interval_spin.setSuffix(" ms")
-        form.addRow("Screenshot Interval:", self.interval_spin)
+        self.interval_spin.setSuffix(" мс")
+        form.addRow("Интервал скриншотов:", self.interval_spin)
 
         layout.addLayout(form)
 

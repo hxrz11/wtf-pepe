@@ -41,21 +41,21 @@ class ScreenshotMode(QWidget):
         layout = QVBoxLayout(self)
 
         # Game window status
-        status_group = QGroupBox("Game Window Status")
+        status_group = QGroupBox("Статус окна игры")
         status_layout = QVBoxLayout()
 
-        self.window_status_label = QLabel("Not found")
+        self.window_status_label = QLabel("Не найдено")
         self.window_status_label.setAlignment(Qt.AlignCenter)
         font = QFont()
         font.setPointSize(10)
         self.window_status_label.setFont(font)
         status_layout.addWidget(self.window_status_label)
 
-        find_window_btn = QPushButton("Find Window")
+        find_window_btn = QPushButton("Найти окно игры")
         find_window_btn.clicked.connect(self.find_game_window)
         status_layout.addWidget(find_window_btn)
 
-        set_size_btn = QPushButton("Set Window Size")
+        set_size_btn = QPushButton("Установить размер окна")
         set_size_btn.clicked.connect(self.set_window_size)
         status_layout.addWidget(set_size_btn)
 
@@ -63,11 +63,11 @@ class ScreenshotMode(QWidget):
         layout.addWidget(status_group)
 
         # Capture settings
-        settings_group = QGroupBox("Capture Settings")
+        settings_group = QGroupBox("Настройки захвата")
         settings_layout = QVBoxLayout()
 
         interval_layout = QHBoxLayout()
-        interval_layout.addWidget(QLabel("Interval (ms):"))
+        interval_layout.addWidget(QLabel("Интервал (мс):"))
         self.interval_spin = QSpinBox()
         self.interval_spin.setMinimum(500)
         self.interval_spin.setMaximum(10000)
@@ -80,10 +80,10 @@ class ScreenshotMode(QWidget):
         layout.addWidget(settings_group)
 
         # Capture control
-        control_group = QGroupBox("Capture Control")
+        control_group = QGroupBox("Управление захватом")
         control_layout = QVBoxLayout()
 
-        self.start_stop_btn = QPushButton("Start Capture")
+        self.start_stop_btn = QPushButton("Начать захват")
         self.start_stop_btn.clicked.connect(self.toggle_capture)
         self.start_stop_btn.setEnabled(False)
         font = QFont()
@@ -92,7 +92,7 @@ class ScreenshotMode(QWidget):
         self.start_stop_btn.setFont(font)
         control_layout.addWidget(self.start_stop_btn)
 
-        self.count_label = QLabel("Screenshots: 0")
+        self.count_label = QLabel("Скриншотов: 0")
         self.count_label.setAlignment(Qt.AlignCenter)
         font = QFont()
         font.setPointSize(14)
@@ -104,10 +104,10 @@ class ScreenshotMode(QWidget):
 
         # Info
         info_label = QLabel(
-            "1. Find game window\n"
-            "2. Set window size\n"
-            "3. Start capture\n\n"
-            "Screenshots saved to: screenshots/"
+            "1. Найти окно игры\n"
+            "2. Установить размер окна\n"
+            "3. Начать захват\n\n"
+            "Скриншоты сохраняются в: screenshots/"
         )
         info_label.setWordWrap(True)
         layout.addWidget(info_label)
@@ -122,18 +122,18 @@ class ScreenshotMode(QWidget):
     def find_game_window(self):
         """Find game window."""
         if self.window_manager.find_window():
-            QMessageBox.information(self, "Success", "Game window found!")
+            QMessageBox.information(self, "Готово", "Окно игры найдено!")
             self.update_window_status()
         else:
             QMessageBox.warning(
-                self, "Not Found",
-                f"Could not find window with title: {self.config.window_title}"
+                self, "Не найдено",
+                f"Не удалось найти окно с заголовком: {self.config.window_title}"
             )
 
     def set_window_size(self):
         """Set game window size."""
         if not self.window_manager.is_window_valid():
-            QMessageBox.warning(self, "Error", "Game window not found!")
+            QMessageBox.warning(self, "Ошибка", "Окно игры не найдено!")
             return
 
         success = self.window_manager.set_window_size(
@@ -143,11 +143,11 @@ class ScreenshotMode(QWidget):
 
         if success:
             QMessageBox.information(
-                self, "Success",
-                f"Window size set to {self.config.game_window_width}x{self.config.game_window_height}"
+                self, "Готово",
+                f"Размер окна установлен: {self.config.game_window_width}x{self.config.game_window_height}"
             )
         else:
-            QMessageBox.warning(self, "Error", "Failed to set window size!")
+            QMessageBox.warning(self, "Ошибка", "Не удалось установить размер окна!")
 
     def update_window_status(self):
         """Update window status display."""
@@ -156,15 +156,15 @@ class ScreenshotMode(QWidget):
             if rect:
                 x, y, w, h = rect
                 self.window_status_label.setText(
-                    f"Found: {w}x{h}\n({x}, {y})"
+                    f"Найдено: {w}x{h}\n({x}, {y})"
                 )
                 self.window_status_label.setStyleSheet("color: green;")
                 self.start_stop_btn.setEnabled(True)
             else:
-                self.window_status_label.setText("Found (no info)")
+                self.window_status_label.setText("Найдено (нет данных)")
                 self.window_status_label.setStyleSheet("color: orange;")
         else:
-            self.window_status_label.setText("Not found")
+            self.window_status_label.setText("Не найдено")
             self.window_status_label.setStyleSheet("color: red;")
             self.start_stop_btn.setEnabled(False)
             if self.is_capturing:
@@ -180,7 +180,7 @@ class ScreenshotMode(QWidget):
     def start_capture(self):
         """Start screenshot capture."""
         if not self.window_manager.is_window_valid():
-            QMessageBox.warning(self, "Error", "Game window not found!")
+            QMessageBox.warning(self, "Ошибка", "Окно игры не найдено!")
             return
 
         self.is_capturing = True
@@ -189,7 +189,7 @@ class ScreenshotMode(QWidget):
         interval = self.interval_spin.value()
         self.capture_timer.start(interval)
 
-        self.start_stop_btn.setText("Stop Capture")
+        self.start_stop_btn.setText("Остановить")
         self.start_stop_btn.setStyleSheet("background-color: #ff4444;")
         self.interval_spin.setEnabled(False)
 
@@ -198,7 +198,7 @@ class ScreenshotMode(QWidget):
         self.is_capturing = False
         self.capture_timer.stop()
 
-        self.start_stop_btn.setText("Start Capture")
+        self.start_stop_btn.setText("Начать захват")
         self.start_stop_btn.setStyleSheet("")
         self.interval_spin.setEnabled(True)
 
@@ -211,7 +211,7 @@ class ScreenshotMode(QWidget):
 
         if filepath:
             self.screenshot_count += 1
-            self.count_label.setText(f"Screenshots: {self.screenshot_count}")
+            self.count_label.setText(f"Скриншотов: {self.screenshot_count}")
 
     def on_mode_activated(self):
         """Called when this mode is activated."""
