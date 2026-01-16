@@ -275,12 +275,18 @@ class LabelingMode(QWidget):
         self.skip_btn.clicked.connect(self.next_file)
         self.skip_btn.setEnabled(False)
 
+        self.delete_btn = QPushButton("Удалить регион")
+        self.delete_btn.clicked.connect(self.delete_current_file)
+        self.delete_btn.setEnabled(False)
+        self.delete_btn.setStyleSheet("background-color: #ffcccc;")
+
         self.next_btn = QPushButton("Вперёд ►")
         self.next_btn.clicked.connect(self.next_file)
         self.next_btn.setEnabled(False)
 
         nav_layout.addWidget(self.prev_btn)
         nav_layout.addWidget(self.skip_btn)
+        nav_layout.addWidget(self.delete_btn)
         nav_layout.addWidget(self.next_btn)
 
         left_layout.addLayout(nav_layout)
@@ -491,6 +497,7 @@ class LabelingMode(QWidget):
 
         self.prev_btn.setEnabled(True)
         self.skip_btn.setEnabled(True)
+        self.delete_btn.setEnabled(True)
         self.next_btn.setEnabled(True)
 
         self.update_progress()
@@ -712,6 +719,28 @@ class LabelingMode(QWidget):
             )
             return
 
+        # Verify template
+        is_valid, verify_msg = self.verify_card_template(self.current_image, rank, suit)
+
+        if not is_valid:
+            # Show warning if template looks like a different card
+            reply = QMessageBox.question(
+                self, "Предупреждение",
+                f"{verify_msg}\n\nВсё равно сохранить как {rank}{suit}?",
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if reply != QMessageBox.Yes:
+                return
+        else:
+            # Show verification message and ask to confirm
+            reply = QMessageBox.question(
+                self, "Проверка шаблона",
+                f"{verify_msg}\n\nСохранить как {rank}{suit}?",
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if reply != QMessageBox.Yes:
+                return
+
         # Check if exists
         if self.template_manager.template_exists('cards', f"{rank}{suit}"):
             reply = QMessageBox.question(
@@ -795,6 +824,142 @@ class LabelingMode(QWidget):
         else:
             QMessageBox.warning(self, "Ошибка", "Не удалось сохранить шаблон")
 
+    def delete_current_file(self):
+        """Delete current region file."""
+        if self.current_file_index < 0 or self.current_file_index >= len(self.current_region_files):
+            return
+
+        filepath = self.current_region_files[self.current_file_index]
+
+        reply = QMessageBox.question(
+            self, "Удалить?",
+            f"Удалить файл?\n{filepath.name}",
+            QMessageBox.Yes | QMessageBox.No
+        )
+
+        if reply != QMessageBox.Yes:
+            return
+
+        try:
+            # Delete the file
+            filepath.unlink()
+
+            # Remove from list
+            self.current_region_files.pop(self.current_file_index)
+
+            # Update display
+            if not self.current_region_files:
+                # No more files
+                QMessageBox.information(self, "Готово", "Все файлы удалены")
+                self.current_file_index = -1
+                self.current_image = None
+                self.image_scene.clear()
+                self.prev_btn.setEnabled(False)
+                self.skip_btn.setEnabled(False)
+                self.delete_btn.setEnabled(False)
+                self.next_btn.setEnabled(False)
+                self.progress_label.setText("Файлы не загружены")
+            else:
+                # Load next file (or stay at current index if it was the last)
+                if self.current_file_index >= len(self.current_region_files):
+                    self.current_file_index = len(self.current_region_files) - 1
+
+                self.load_current_file()
+                self.update_progress()
+
+        except Exception as e:
+            QMessageBox.warning(self, "Ошибка", f"Не удалось удалить файл: {e}")
+
+    def verify_card_template(self, image: np.ndarray, rank: str, suit: str) -> Tuple[bool, str]:
+        """Verify card template against existing templates.
+
+        Args:
+            image: Card image to verify
+            rank: Card rank
+            suit: Card suit
+
+        Returns:
+            Tuple of (is_valid, message)
+        """
+        # Get all existing card templates
+        cards_dir = self.config.templates_dir / 'cards'
+        if not cards_dir.exists():
+            return True, "Первый шаблон карты"
+
+        # Try template matching against all existing cards
+        best_match_score = 0.0
+        best_match_card = None
+
+        for template_file in cards_dir.glob('*.png'):
+            template = cv2.imread(str(template_file), cv2.IMREAD_GRAYSCALE)
+            if template is None:
+                continue
+
+            # Resize image to match template size
+            img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
+            img_resized = cv2.resize(img_gray, (template.shape[1], template.shape[0]))
+
+            # Template matching
+            result = cv2.matchTemplate(img_resized, template, cv2.TM_CCOEFF_NORMED)
+            score = result[0][0]
+
+            if score > best_match_score:
+                best_match_score = score
+                best_match_card = template_file.stem
+
+        # If very high match with different card, warn
+        if best_match_score > 0.95 and best_match_card != f"{rank}{suit}":
+            return False, f"ВНИМАНИЕ: Сильное совпадение с {best_match_card} (схожесть: {best_match_score:.2%})"
+
+        if best_match_score > 0.95:
+            return True, f"Совпадает с существующим {best_match_card} (схожесть: {best_match_score:.2%})"
+
+        return True, f"Новый уникальный шаблон"
+
+    def verify_symbol_template(self, image: np.ndarray, char: str, category: str) -> Tuple[bool, str]:
+        """Verify symbol template against existing templates.
+
+        Args:
+            image: Symbol image to verify
+            char: Character
+            category: Template category (digits, letters_lat, etc.)
+
+        Returns:
+            Tuple of (is_valid, message)
+        """
+        # Get category directory
+        category_dir = self.config.templates_dir / category
+        if not category_dir.exists():
+            return True, "Первый шаблон"
+
+        # Try template matching against existing templates for this character
+        char_files = list(category_dir.glob(f'{char}_*.png'))
+        if not char_files:
+            return True, "Новый символ"
+
+        best_match_score = 0.0
+
+        for template_file in char_files:
+            template = cv2.imread(str(template_file), cv2.IMREAD_GRAYSCALE)
+            if template is None:
+                continue
+
+            # Resize image to match template size
+            img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
+            img_resized = cv2.resize(img_gray, (template.shape[1], template.shape[0]))
+
+            # Template matching
+            result = cv2.matchTemplate(img_resized, template, cv2.TM_CCOEFF_NORMED)
+            score = result[0][0]
+
+            if score > best_match_score:
+                best_match_score = score
+
+        if best_match_score > 0.95:
+            return True, f"Совпадает с существующим (схожесть: {best_match_score:.2%})"
+
+        return True, f"Новый вариант символа '{char}'"
+
     def save_text_label(self):
         """Save text label."""
         text = self.text_input.text().strip()
@@ -804,6 +969,37 @@ class LabelingMode(QWidget):
 
         if len(text) != len(self.symbol_rects):
             QMessageBox.warning(self, "Несовпадение", "Количество символов не совпадает")
+            return
+
+        # Verify templates before saving
+        verification_messages = []
+        for i, char in enumerate(text):
+            x, y, w, h = self.symbol_rects[i]
+            symbol_img = self.current_image[y:y+h, x:x+w].copy()
+
+            # Determine category
+            if char.isdigit() or char == '.':
+                category = 'digits'
+            elif char.isalpha():
+                if ord(char) < 128:
+                    category = 'letters_lat'
+                else:
+                    category = 'letters_cyr'
+            else:
+                category = 'special'
+
+            is_valid, msg = self.verify_symbol_template(symbol_img, char, category)
+            verification_messages.append(f"'{char}': {msg}")
+
+        # Show verification results
+        verification_text = "\n".join(verification_messages)
+        reply = QMessageBox.question(
+            self, "Проверка шаблонов",
+            f"Результаты проверки:\n\n{verification_text}\n\nСохранить?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+
+        if reply != QMessageBox.Yes:
             return
 
         # Save each symbol with adjusted boundaries
