@@ -52,15 +52,15 @@ class LabelingMode(QWidget):
         layout = QVBoxLayout(self)
 
         # Region category selection
-        category_group = QGroupBox("Select Region Category")
+        category_group = QGroupBox("Выбор категории региона")
         category_layout = QVBoxLayout()
 
         self.category_combo = QComboBox()
-        self.category_combo.addItem("Cards (my_card_*, board_*)")
-        self.category_combo.addItem("Combos (my_combo)")
-        self.category_combo.addItem("Markers (dealer_pos_*, timer_pos_*, seat_*)")
-        self.category_combo.addItem("Text - Digits (stack_*, bet_*, pot)")
-        self.category_combo.addItem("Text - Mixed (name_*, match_id)")
+        self.category_combo.addItem("Карты (my_card_*, board_*)")
+        self.category_combo.addItem("Комбинации (my_combo)")
+        self.category_combo.addItem("Маркеры (dealer_pos_*, timer_pos_*, seat_*)")
+        self.category_combo.addItem("Текст - Цифры (stack_*, bet_*, pot)")
+        self.category_combo.addItem("Текст - Смешанный (name_*, match_id)")
         self.category_combo.currentIndexChanged.connect(self.on_category_changed)
         category_layout.addWidget(self.category_combo)
 
@@ -69,7 +69,7 @@ class LabelingMode(QWidget):
         self.region_combo.currentIndexChanged.connect(self.on_region_changed)
         category_layout.addWidget(self.region_combo)
 
-        load_btn = QPushButton("Load Region Files")
+        load_btn = QPushButton("Загрузить файлы региона")
         load_btn.clicked.connect(self.load_region_files)
         category_layout.addWidget(load_btn)
 
@@ -77,7 +77,7 @@ class LabelingMode(QWidget):
         layout.addWidget(category_group)
 
         # Progress info
-        self.progress_label = QLabel("Select category and load files")
+        self.progress_label = QLabel("Выберите категорию и загрузите файлы")
         self.progress_label.setAlignment(Qt.AlignCenter)
         font = QFont()
         font.setPointSize(11)
@@ -85,7 +85,7 @@ class LabelingMode(QWidget):
         layout.addWidget(self.progress_label)
 
         # Image viewer
-        viewer_group = QGroupBox("Current Region")
+        viewer_group = QGroupBox("Текущий регион")
         viewer_layout = QVBoxLayout()
 
         self.image_viewer = QGraphicsView()
@@ -98,7 +98,7 @@ class LabelingMode(QWidget):
         layout.addWidget(viewer_group)
 
         # Labeling interface (stacked based on category)
-        label_group = QGroupBox("Labeling")
+        label_group = QGroupBox("Разметка")
         self.label_layout = QVBoxLayout()
 
         self._setup_card_labeling()
@@ -112,15 +112,15 @@ class LabelingMode(QWidget):
         # Navigation
         nav_layout = QHBoxLayout()
 
-        self.prev_btn = QPushButton("◄ Previous")
+        self.prev_btn = QPushButton("◄ Назад")
         self.prev_btn.clicked.connect(self.prev_file)
         self.prev_btn.setEnabled(False)
 
-        self.skip_btn = QPushButton("Skip")
+        self.skip_btn = QPushButton("Пропустить")
         self.skip_btn.clicked.connect(self.next_file)
         self.skip_btn.setEnabled(False)
 
-        self.next_btn = QPushButton("Next ►")
+        self.next_btn = QPushButton("Вперёд ►")
         self.next_btn.clicked.connect(self.next_file)
         self.next_btn.setEnabled(False)
 
@@ -144,11 +144,11 @@ class LabelingMode(QWidget):
         self.card_widget = QWidget()
         card_layout = QVBoxLayout(self.card_widget)
 
-        info = QLabel("Enter card value: rank + suit (e.g., '2c', 'Ah', 'Ks')")
+        info = QLabel("Введите значение карты: ранг + масть (напр.: '2c', 'Ah', 'Ks')")
         card_layout.addWidget(info)
 
         input_layout = QHBoxLayout()
-        input_layout.addWidget(QLabel("Card:"))
+        input_layout.addWidget(QLabel("Карта:"))
 
         self.card_input = QLineEdit()
         self.card_input.setMaxLength(2)
@@ -156,7 +156,7 @@ class LabelingMode(QWidget):
         self.card_input.returnPressed.connect(self.save_card_label)
         input_layout.addWidget(self.card_input)
 
-        save_btn = QPushButton("Save")
+        save_btn = QPushButton("Сохранить")
         save_btn.clicked.connect(self.save_card_label)
         input_layout.addWidget(save_btn)
 
@@ -170,7 +170,7 @@ class LabelingMode(QWidget):
         self.combo_widget = QWidget()
         combo_layout = QVBoxLayout(self.combo_widget)
 
-        info = QLabel("Select combo type:")
+        info = QLabel("Выберите тип комбинации:")
         combo_layout.addWidget(info)
 
         self.combo_type_combo = QComboBox()
@@ -179,7 +179,7 @@ class LabelingMode(QWidget):
             self.combo_type_combo.addItem(display_name, combo_name)
         combo_layout.addWidget(self.combo_type_combo)
 
-        save_btn = QPushButton("Save Combo Template")
+        save_btn = QPushButton("Сохранить шаблон комбинации")
         save_btn.clicked.connect(self.save_combo_label)
         combo_layout.addWidget(save_btn)
 
@@ -191,16 +191,16 @@ class LabelingMode(QWidget):
         self.marker_widget = QWidget()
         marker_layout = QVBoxLayout(self.marker_widget)
 
-        info = QLabel("Is the marker present in this image?")
+        info = QLabel("Присутствует ли маркер на изображении?")
         marker_layout.addWidget(info)
 
         btn_layout = QHBoxLayout()
 
-        yes_btn = QPushButton("Yes - Save as Template")
+        yes_btn = QPushButton("Да - Сохранить как шаблон")
         yes_btn.clicked.connect(self.save_marker_label)
         btn_layout.addWidget(yes_btn)
 
-        no_btn = QPushButton("No - Skip")
+        no_btn = QPushButton("Нет - Пропустить")
         no_btn.clicked.connect(self.next_file)
         btn_layout.addWidget(no_btn)
 
@@ -214,18 +214,18 @@ class LabelingMode(QWidget):
         self.text_widget = QWidget()
         text_layout = QVBoxLayout(self.text_widget)
 
-        info = QLabel("Enter the text shown in the image:")
+        info = QLabel("Введите текст, показанный на изображении:")
         text_layout.addWidget(info)
 
         input_layout = QHBoxLayout()
-        input_layout.addWidget(QLabel("Text:"))
+        input_layout.addWidget(QLabel("Текст:"))
 
         self.text_input = QLineEdit()
         self.text_input.setPlaceholderText("12.59")
         self.text_input.returnPressed.connect(self.save_text_label)
         input_layout.addWidget(self.text_input)
 
-        save_btn = QPushButton("Save")
+        save_btn = QPushButton("Сохранить")
         save_btn.clicked.connect(self.save_text_label)
         input_layout.addWidget(save_btn)
 
@@ -279,16 +279,16 @@ class LabelingMode(QWidget):
         """Load region files for selected region."""
         region_id = self.region_combo.currentText()
         if not region_id:
-            QMessageBox.warning(self, "No Region", "Please select a region first.")
+            QMessageBox.warning(self, "Нет региона", "Сначала выберите регион.")
             return
 
         self.current_region_files = self.region_cutter.get_region_files(region_id)
 
         if not self.current_region_files:
             QMessageBox.information(
-                self, "No Files",
-                f"No cut regions found for {region_id}.\n"
-                "Please cut regions in Cutting mode first."
+                self, "Нет файлов",
+                f"Нарезки для {region_id} не найдены.\n"
+                "Сначала нарежьте регионы в режиме Нарезки."
             )
             return
 
@@ -355,7 +355,7 @@ class LabelingMode(QWidget):
 
         self.current_symbols = self.symbol_splitter.split_to_symbols(self.current_image)
 
-        info = f"Detected {len(self.current_symbols)} symbols"
+        info = f"Обнаружено символов: {len(self.current_symbols)}"
         self.symbol_info_label.setText(info)
 
     def prev_file(self):
@@ -375,7 +375,7 @@ class LabelingMode(QWidget):
     def update_progress(self):
         """Update progress label."""
         if not self.current_region_files:
-            self.progress_label.setText("No files loaded")
+            self.progress_label.setText("Файлы не загружены")
             return
 
         current = self.current_file_index + 1
@@ -391,7 +391,7 @@ class LabelingMode(QWidget):
 
         card_value = self.card_input.text().strip()
         if len(card_value) != 2:
-            QMessageBox.warning(self, "Invalid Input", "Card value must be 2 characters (e.g., '2c')")
+            QMessageBox.warning(self, "Неверный ввод", "Значение карты должно быть 2 символа (напр.: '2c')")
             return
 
         rank = card_value[0].upper()
@@ -399,23 +399,23 @@ class LabelingMode(QWidget):
 
         if rank not in self.template_manager.CARD_RANKS:
             QMessageBox.warning(
-                self, "Invalid Rank",
-                f"Rank must be one of: {', '.join(self.template_manager.CARD_RANKS)}"
+                self, "Неверный ранг",
+                f"Ранг должен быть одним из: {', '.join(self.template_manager.CARD_RANKS)}"
             )
             return
 
         if suit not in self.template_manager.CARD_SUITS:
             QMessageBox.warning(
-                self, "Invalid Suit",
-                f"Suit must be one of: {', '.join(self.template_manager.CARD_SUITS)}"
+                self, "Неверная масть",
+                f"Масть должна быть одной из: {', '.join(self.template_manager.CARD_SUITS)}"
             )
             return
 
         # Check if exists
         if self.template_manager.template_exists('cards', f"{rank}{suit}"):
             reply = QMessageBox.question(
-                self, "Replace?",
-                f"Template for {rank}{suit} already exists. Replace?",
+                self, "Заменить?",
+                f"Шаблон для {rank}{suit} уже существует. Заменить?",
                 QMessageBox.Yes | QMessageBox.No
             )
             if reply != QMessageBox.Yes:
@@ -425,12 +425,12 @@ class LabelingMode(QWidget):
         result = self.template_manager.save_card_template(self.current_image, rank, suit)
 
         if result:
-            QMessageBox.information(self, "Saved", f"Saved template for {rank}{suit}")
+            QMessageBox.information(self, "Сохранено", f"Сохранён шаблон для {rank}{suit}")
             self.card_input.clear()
             self.next_file()
             self.update_statistics()
         else:
-            QMessageBox.warning(self, "Error", "Failed to save template")
+            QMessageBox.warning(self, "Ошибка", "Не удалось сохранить шаблон")
 
     def save_combo_label(self):
         """Save combo label."""
@@ -442,8 +442,8 @@ class LabelingMode(QWidget):
         # Check if exists
         if self.template_manager.template_exists('combos', combo_name):
             reply = QMessageBox.question(
-                self, "Replace?",
-                f"Template for {combo_name} already exists. Replace?",
+                self, "Заменить?",
+                f"Шаблон для {combo_name} уже существует. Заменить?",
                 QMessageBox.Yes | QMessageBox.No
             )
             if reply != QMessageBox.Yes:
@@ -453,11 +453,11 @@ class LabelingMode(QWidget):
         result = self.template_manager.save_combo_template(self.current_image, combo_name)
 
         if result:
-            QMessageBox.information(self, "Saved", f"Saved template for {combo_name}")
+            QMessageBox.information(self, "Сохранено", f"Сохранён шаблон для {combo_name}")
             self.next_file()
             self.update_statistics()
         else:
-            QMessageBox.warning(self, "Error", "Failed to save template")
+            QMessageBox.warning(self, "Ошибка", "Не удалось сохранить шаблон")
 
     def save_marker_label(self):
         """Save marker label."""
@@ -474,14 +474,14 @@ class LabelingMode(QWidget):
         elif 'seat' in region_id:
             marker_name = 'seat_occupied'
         else:
-            QMessageBox.warning(self, "Error", "Unknown marker type")
+            QMessageBox.warning(self, "Ошибка", "Неизвестный тип маркера")
             return
 
         # Check if exists
         if self.template_manager.template_exists('markers', marker_name):
             reply = QMessageBox.question(
-                self, "Replace?",
-                f"Template for {marker_name} already exists. Replace?",
+                self, "Заменить?",
+                f"Шаблон для {marker_name} уже существует. Заменить?",
                 QMessageBox.Yes | QMessageBox.No
             )
             if reply != QMessageBox.Yes:
@@ -491,28 +491,28 @@ class LabelingMode(QWidget):
         result = self.template_manager.save_marker_template(self.current_image, marker_name)
 
         if result:
-            QMessageBox.information(self, "Saved", f"Saved template for {marker_name}")
+            QMessageBox.information(self, "Сохранено", f"Сохранён шаблон для {marker_name}")
             self.next_file()
             self.update_statistics()
         else:
-            QMessageBox.warning(self, "Error", "Failed to save template")
+            QMessageBox.warning(self, "Ошибка", "Не удалось сохранить шаблон")
 
     def save_text_label(self):
         """Save text label."""
         if self.current_image is None or not self.current_symbols:
-            QMessageBox.warning(self, "Error", "No symbols detected")
+            QMessageBox.warning(self, "Ошибка", "Символы не обнаружены")
             return
 
         text = self.text_input.text().strip()
         if not text:
-            QMessageBox.warning(self, "Invalid Input", "Please enter text")
+            QMessageBox.warning(self, "Неверный ввод", "Введите текст")
             return
 
         # Check if length matches
         if len(text) != len(self.current_symbols):
             QMessageBox.warning(
-                self, "Mismatch",
-                f"Input length ({len(text)}) doesn't match detected symbols ({len(self.current_symbols)})"
+                self, "Несовпадение",
+                f"Длина ввода ({len(text)}) не совпадает с обнаруженными символами ({len(self.current_symbols)})"
             )
             return
 
@@ -544,7 +544,7 @@ class LabelingMode(QWidget):
                 if result:
                     saved_count += 1
 
-        QMessageBox.information(self, "Saved", f"Saved {saved_count} symbol templates")
+        QMessageBox.information(self, "Сохранено", f"Сохранено {saved_count} шаблонов символов")
         self.text_input.clear()
         self.next_file()
         self.update_statistics()
@@ -555,14 +555,14 @@ class LabelingMode(QWidget):
 
         cards_existing, cards_total = self.template_manager.get_cards_completion()
 
-        stats_text = "Template Statistics:\n"
-        stats_text += f"  Cards: {cards_existing}/{cards_total}\n"
-        stats_text += f"  Digits: {stats.get('digits', 0)}\n"
-        stats_text += f"  Combos: {stats.get('combos', 0)}/{len(self.template_manager.COMBO_NAMES)}\n"
-        stats_text += f"  Markers: {stats.get('markers', 0)}/{len(self.template_manager.MARKER_NAMES)}\n"
-        stats_text += f"  Letters (Latin): {stats.get('letters_lat', 0)}\n"
-        stats_text += f"  Letters (Cyrillic): {stats.get('letters_cyr', 0)}\n"
-        stats_text += f"  Special: {stats.get('special', 0)}\n"
+        stats_text = "Статистика шаблонов:\n"
+        stats_text += f"  Карты: {cards_existing}/{cards_total}\n"
+        stats_text += f"  Цифры: {stats.get('digits', 0)}\n"
+        stats_text += f"  Комбинации: {stats.get('combos', 0)}/{len(self.template_manager.COMBO_NAMES)}\n"
+        stats_text += f"  Маркеры: {stats.get('markers', 0)}/{len(self.template_manager.MARKER_NAMES)}\n"
+        stats_text += f"  Буквы (лат.): {stats.get('letters_lat', 0)}\n"
+        stats_text += f"  Буквы (кир.): {stats.get('letters_cyr', 0)}\n"
+        stats_text += f"  Спецсимволы: {stats.get('special', 0)}\n"
 
         self.stats_label.setText(stats_text)
 
