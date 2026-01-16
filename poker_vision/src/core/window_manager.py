@@ -96,8 +96,8 @@ class WindowManager:
         """Set game window size.
 
         Args:
-            width: Desired width
-            height: Desired height
+            width: Desired client area width
+            height: Desired client area height
 
         Returns:
             True if successful, False otherwise
@@ -110,31 +110,43 @@ class WindowManager:
             rect = win32gui.GetWindowRect(self.hwnd)
             x, y = rect[0], rect[1]
 
-            # Calculate window size including borders
-            # We need to account for borders/titlebar
+            # Get window style
             style = win32gui.GetWindowLong(self.hwnd, win32con.GWL_STYLE)
             ex_style = win32gui.GetWindowLong(self.hwnd, win32con.GWL_EXSTYLE)
 
             # Calculate required window size for desired client size
-            rect_adj = win32api.RECT()
-            rect_adj.left = 0
-            rect_adj.top = 0
-            rect_adj.right = width
-            rect_adj.bottom = height
+            # AdjustWindowRectEx calculates the required window size from client size
+            try:
+                # Create a rectangle with desired client size
+                rect_adjust = (0, 0, width, height)
 
-            # This would adjust for borders, but win32api.AdjustWindowRectEx
-            # might not be available in all win32api versions
-            # For now, just use the size directly
-            window_width = width
-            window_height = height
+                # Adjust for window borders and title bar
+                adjusted = win32gui.AdjustWindowRectEx(
+                    rect_adjust,
+                    style,
+                    False,  # No menu
+                    ex_style
+                )
 
+                window_width = adjusted[2] - adjusted[0]
+                window_height = adjusted[3] - adjusted[1]
+            except AttributeError:
+                # If AdjustWindowRectEx is not available, use approximation
+                # Add typical border sizes
+                border_width = 16  # Typical Windows border
+                title_height = 32  # Typical title bar height
+                window_width = width + border_width
+                window_height = height + title_height
+
+            # Set window size
             win32gui.SetWindowPos(
                 self.hwnd, win32con.HWND_TOP,
                 x, y, window_width, window_height,
                 win32con.SWP_NOMOVE | win32con.SWP_NOZORDER
             )
             return True
-        except:
+        except Exception as e:
+            print(f"Error setting window size: {e}")
             return False
 
     def is_window_valid(self) -> bool:
