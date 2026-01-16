@@ -47,10 +47,10 @@ class DraggableRectItem(QGraphicsRectItem):
             self.is_dragging = True
             self.drag_start_pos = event.pos()
             self.original_pos = (self.rect().x(), self.rect().y())
-            # Change color while dragging
+            # Change color while dragging - thin but bright red
             pen = self.pen()
             pen.setColor(QColor(255, 0, 0))  # Red
-            pen.setWidth(3)
+            pen.setWidth(1)  # Thin (1px)
             self.setPen(pen)
         super().mousePressEvent(event)
 
@@ -70,10 +70,10 @@ class DraggableRectItem(QGraphicsRectItem):
         """Handle mouse release."""
         if event.button() == Qt.LeftButton and self.is_dragging:
             self.is_dragging = False
-            # Restore color
+            # Restore color - thin yellow
             pen = self.pen()
             pen.setColor(QColor(255, 255, 0))  # Yellow
-            pen.setWidth(3)
+            pen.setWidth(1)  # Thin (1px)
             self.setPen(pen)
             # Notify parent of final position
             new_rect = self.sceneBoundingRect()
@@ -200,8 +200,8 @@ class ImageViewer(QGraphicsView):
 
             # Check if this is the editing region
             if editing_region_id and region_id == editing_region_id:
-                # Draw as draggable with special color
-                pen = QPen(QColor(255, 255, 0), 3)  # Yellow, thicker
+                # Draw as draggable with special color - thin but bright
+                pen = QPen(QColor(255, 255, 0), 1)  # Yellow, thin (1px)
                 rect_item = DraggableRectItem(x, y, w, h, region_id, self)
                 rect_item.setPen(pen)
                 rect_item.setZValue(2)
