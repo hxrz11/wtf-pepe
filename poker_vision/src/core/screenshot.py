@@ -54,8 +54,14 @@ class ScreenshotCapture:
             save_dc.SelectObject(save_bitmap)
 
             # Copy window content to bitmap
-            # Use PrintWindow for better quality
+            # Try PrintWindow first, fallback to BitBlt
             result = win32gui.PrintWindow(hwnd, save_dc.GetSafeHdc(), 3)
+
+            if result == 0:
+                # PrintWindow failed, use BitBlt instead
+                # Get window position for BitBlt
+                window_left, window_top = win32gui.ClientToScreen(hwnd, (0, 0))
+                save_dc.BitBlt((0, 0), (width, height), mfc_dc, (0, 0), win32con.SRCCOPY)
 
             # Convert to PIL Image
             bmpinfo = save_bitmap.GetInfo()
