@@ -508,13 +508,24 @@ class LabelingMode(QWidget):
             return
 
         filepath = self.current_region_files[self.current_file_index]
+
+        # Check if this card is already labeled (for cards only)
+        category_index = self.category_combo.currentIndex()
+        if category_index == 0:  # Cards
+            # Check all possible card labels for this file
+            existing_card = self.find_existing_card_label(filepath)
+            if existing_card:
+                self.card_input.setText(existing_card)
+                self.card_input.setStyleSheet("background-color: #ffffcc;")
+        else:
+            self.card_input.setStyleSheet("")
+
         self.current_image = load_image(filepath)
 
         if self.current_image is not None:
             self.display_image(self.current_image)
 
             # For text, auto-split symbols
-            category_index = self.category_combo.currentIndex()
             if category_index == 3:  # Text
                 self.split_symbols()
 
@@ -672,6 +683,8 @@ class LabelingMode(QWidget):
             self.current_file_index -= 1
             self.load_current_file()
             self.update_progress()
+            # Clear any highlighting
+            self.card_input.setStyleSheet("")
 
     def next_file(self):
         """Go to next file."""
@@ -679,6 +692,8 @@ class LabelingMode(QWidget):
             self.current_file_index += 1
             self.load_current_file()
             self.update_progress()
+            # Clear any highlighting
+            self.card_input.setStyleSheet("")
 
     def update_progress(self):
         """Update progress label."""
@@ -823,6 +838,57 @@ class LabelingMode(QWidget):
             self.update_statistics()
         else:
             QMessageBox.warning(self, "Ошибка", "Не удалось сохранить шаблон")
+
+    def find_existing_card_label(self, filepath: Path) -> Optional[str]:
+        """Find if current card image matches an existing template.
+
+        Args:
+            filepath: Path to card image file
+
+        Returns:
+            Card label (e.g., "2c") if found, None otherwise
+        """
+        try:
+            # Load the card image
+            image = load_image(filepath)
+            if image is None:
+                return None
+
+            # Get all existing card templates
+            cards_dir = self.config.templates_dir / 'cards'
+            if not cards_dir.exists():
+                return None
+
+            best_match_score = 0.0
+            best_match_card = None
+
+            # Try matching against all card templates
+            for template_file in cards_dir.glob('*.png'):
+                template = cv2.imread(str(template_file), cv2.IMREAD_GRAYSCALE)
+                if template is None:
+                    continue
+
+                # Resize image to match template size
+                img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
+                img_resized = cv2.resize(img_gray, (template.shape[1], template.shape[0]))
+
+                # Template matching
+                result = cv2.matchTemplate(img_resized, template, cv2.TM_CCOEFF_NORMED)
+                score = result[0][0]
+
+                if score > best_match_score:
+                    best_match_score = score
+                    best_match_card = template_file.stem
+
+            # If very high match (>95%), consider it already labeled
+            if best_match_score > 0.95 and best_match_card:
+                return best_match_card
+
+            return None
+
+        except Exception as e:
+            print(f"Error finding existing card label: {e}")
+            return None
 
     def delete_current_file(self):
         """Delete current region file."""

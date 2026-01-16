@@ -7,12 +7,12 @@ from typing import List, Tuple, Optional
 class SymbolSplitter:
     """Handles splitting text images into individual symbols."""
 
-    def __init__(self, min_width: int = 2, min_height: int = 3):
+    def __init__(self, min_width: int = 1, min_height: int = 2):
         """Initialize symbol splitter.
 
         Args:
-            min_width: Minimum symbol width
-            min_height: Minimum symbol height
+            min_width: Minimum symbol width (reduced to 1 for dots and thin chars)
+            min_height: Minimum symbol height (reduced to 2 for small text)
         """
         self.min_width = min_width
         self.min_height = min_height
@@ -37,13 +37,14 @@ class SymbolSplitter:
 
         return binary
 
-    def split_by_projection(self, image: np.ndarray) -> List[Tuple[int, int, int, int]]:
+    def split_by_projection(self, image: np.ndarray, min_gap: int = 1) -> List[Tuple[int, int, int, int]]:
         """Split symbols using vertical projection method.
 
         This is more reliable than contours for separated text.
 
         Args:
             image: Binary image (text should be white)
+            min_gap: Minimum gap between symbols (columns with 0 pixels)
 
         Returns:
             List of bounding boxes (x, y, w, h)
@@ -52,35 +53,49 @@ class SymbolSplitter:
         height, width = image.shape
         vertical_proj = np.sum(image, axis=0) / 255  # Count white pixels
 
-        # Find symbol boundaries (where projection > 0)
+        # Find symbol boundaries
+        # A gap is defined as consecutive columns with projection <= threshold
+        threshold = height * 0.05  # 5% of height - allows small noise
+
         in_symbol = False
         start_x = 0
+        gap_count = 0
         bboxes = []
 
         for x in range(width):
-            if vertical_proj[x] > 0 and not in_symbol:
-                # Start of symbol
+            is_gap = vertical_proj[x] <= threshold
+
+            if not is_gap and not in_symbol:
+                # Start of new symbol
                 in_symbol = True
                 start_x = x
-            elif vertical_proj[x] == 0 and in_symbol:
-                # End of symbol
-                in_symbol = False
-                end_x = x
+                gap_count = 0
+            elif is_gap and in_symbol:
+                gap_count += 1
+                # End symbol if we have enough gap
+                if gap_count >= min_gap:
+                    end_x = x - gap_count + 1
 
-                # Find top and bottom bounds
-                symbol_col = image[:, start_x:end_x]
-                horizontal_proj = np.sum(symbol_col, axis=1) / 255
+                    # Find top and bottom bounds
+                    symbol_col = image[:, start_x:end_x]
+                    horizontal_proj = np.sum(symbol_col, axis=1) / 255
 
-                y_indices = np.where(horizontal_proj > 0)[0]
-                if len(y_indices) > 0:
-                    top_y = y_indices[0]
-                    bottom_y = y_indices[-1] + 1
+                    y_indices = np.where(horizontal_proj > 0)[0]
+                    if len(y_indices) > 0:
+                        top_y = y_indices[0]
+                        bottom_y = y_indices[-1] + 1
 
-                    w = end_x - start_x
-                    h = bottom_y - top_y
+                        w = end_x - start_x
+                        h = bottom_y - top_y
 
-                    if w >= self.min_width and h >= self.min_height:
-                        bboxes.append((start_x, top_y, w, h))
+                        if w >= self.min_width and h >= self.min_height:
+                            bboxes.append((start_x, top_y, w, h))
+
+                    in_symbol = False
+                    gap_count = 0
+            elif not is_gap and in_symbol:
+                # Continue current symbol (gap was too small)
+                gap_count = 0
 
         # Handle last symbol if image ends while in symbol
         if in_symbol:
@@ -127,12 +142,12 @@ class SymbolSplitter:
         return bboxes
 
     def merge_close_boxes(self, bboxes: List[Tuple[int, int, int, int]],
-                         max_gap: int = 2) -> List[Tuple[int, int, int, int]]:
+                         max_gap: int = 1) -> List[Tuple[int, int, int, int]]:
         """Merge boxes that are close together (for dots, multi-part chars).
 
         Args:
             bboxes: List of bounding boxes (x, y, w, h)
-            max_gap: Maximum gap to merge (reduced from 3 to 2)
+            max_gap: Maximum gap to merge (default 1 pixel)
 
         Returns:
             List of merged bounding boxes
@@ -245,17 +260,24 @@ class SymbolSplitter:
         binary = self.preprocess_image(image)
 
         # Try projection method first (more reliable for separated text)
-        if use_projection:
-            bboxes = self.split_by_projection(binary)
+        bboxes_projection = []
+        bboxes_contours = []
 
-            # If projection found nothing or very few, fallback to contours
-            if len(bboxes) < 2:
-                bboxes = self.find_contours(binary)
-                bboxes = self.merge_close_boxes(bboxes)
+        if use_projection:
+            bboxes_projection = self.split_by_projection(binary, min_gap=1)
+
+        # Also try contour method
+        bboxes_contours = self.find_contours(binary)
+        bboxes_contours = self.merge_close_boxes(bboxes_contours, max_gap=1)
+
+        # Choose the method that found more symbols
+        # Contours often work better for connected text
+        if len(bboxes_contours) > len(bboxes_projection):
+            bboxes = bboxes_contours
+        elif len(bboxes_projection) > 0:
+            bboxes = bboxes_projection
         else:
-            # Use contour method
-            bboxes = self.find_contours(binary)
-            bboxes = self.merge_close_boxes(bboxes)
+            bboxes = bboxes_contours
 
         # Sort left to right
         bboxes = self.sort_boxes_left_to_right(bboxes)
