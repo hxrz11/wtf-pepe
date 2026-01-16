@@ -1,0 +1,9 @@
+{
+  "window_title": "TON Poker",
+  "game_window_width": 631,
+  "game_window_height": 958,
+  "screenshot_interval_ms": 2000,
+  "screenshots_dir": "screenshots",
+  "regions_cut_dir": "regions_cut",
+  "templates_dir": "templates"
+}

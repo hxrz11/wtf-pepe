@@ -1,0 +1,12 @@
+# Poker Vision Tool Requirements
+
+# GUI Framework
+PyQt5>=5.15.0
+
+# Image Processing
+opencv-python>=4.5.0
+numpy>=1.21.0
+Pillow>=9.0.0
+
+# Windows-specific (for window capture)
+pywin32>=304; sys_platform == 'win32'
