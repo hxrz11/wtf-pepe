@@ -1,4 +1,4 @@
-"""Symbol splitting for text recognition."""
+"""Symbol splitting for text recognition with improved detection."""
 import cv2
 import numpy as np
 from typing import List, Tuple, Optional
@@ -7,7 +7,7 @@ from typing import List, Tuple, Optional
 class SymbolSplitter:
     """Handles splitting text images into individual symbols."""
 
-    def __init__(self, min_width: int = 3, min_height: int = 5):
+    def __init__(self, min_width: int = 2, min_height: int = 3):
         """Initialize symbol splitter.
 
         Args:
@@ -32,18 +32,74 @@ class SymbolSplitter:
         else:
             gray = image.copy()
 
-        # Apply Gaussian blur to reduce noise
-        blurred = cv2.GaussianBlur(gray, (3, 3), 0)
-
-        # Binarize using adaptive threshold
-        binary = cv2.adaptiveThreshold(
-            blurred, 255,
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY_INV,  # Invert so text is white
-            11, 2
-        )
+        # Try Otsu's thresholding first (better for high contrast)
+        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
         return binary
+
+    def split_by_projection(self, image: np.ndarray) -> List[Tuple[int, int, int, int]]:
+        """Split symbols using vertical projection method.
+
+        This is more reliable than contours for separated text.
+
+        Args:
+            image: Binary image (text should be white)
+
+        Returns:
+            List of bounding boxes (x, y, w, h)
+        """
+        # Calculate vertical projection (sum of pixels in each column)
+        height, width = image.shape
+        vertical_proj = np.sum(image, axis=0) / 255  # Count white pixels
+
+        # Find symbol boundaries (where projection > 0)
+        in_symbol = False
+        start_x = 0
+        bboxes = []
+
+        for x in range(width):
+            if vertical_proj[x] > 0 and not in_symbol:
+                # Start of symbol
+                in_symbol = True
+                start_x = x
+            elif vertical_proj[x] == 0 and in_symbol:
+                # End of symbol
+                in_symbol = False
+                end_x = x
+
+                # Find top and bottom bounds
+                symbol_col = image[:, start_x:end_x]
+                horizontal_proj = np.sum(symbol_col, axis=1) / 255
+
+                y_indices = np.where(horizontal_proj > 0)[0]
+                if len(y_indices) > 0:
+                    top_y = y_indices[0]
+                    bottom_y = y_indices[-1] + 1
+
+                    w = end_x - start_x
+                    h = bottom_y - top_y
+
+                    if w >= self.min_width and h >= self.min_height:
+                        bboxes.append((start_x, top_y, w, h))
+
+        # Handle last symbol if image ends while in symbol
+        if in_symbol:
+            end_x = width
+            symbol_col = image[:, start_x:end_x]
+            horizontal_proj = np.sum(symbol_col, axis=1) / 255
+
+            y_indices = np.where(horizontal_proj > 0)[0]
+            if len(y_indices) > 0:
+                top_y = y_indices[0]
+                bottom_y = y_indices[-1] + 1
+
+                w = end_x - start_x
+                h = bottom_y - top_y
+
+                if w >= self.min_width and h >= self.min_height:
+                    bboxes.append((start_x, top_y, w, h))
+
+        return bboxes
 
     def find_contours(self, binary: np.ndarray) -> List[Tuple[int, int, int, int]]:
         """Find contours in binary image.
@@ -71,12 +127,12 @@ class SymbolSplitter:
         return bboxes
 
     def merge_close_boxes(self, bboxes: List[Tuple[int, int, int, int]],
-                         max_gap: int = 3) -> List[Tuple[int, int, int, int]]:
+                         max_gap: int = 2) -> List[Tuple[int, int, int, int]]:
         """Merge boxes that are close together (for dots, multi-part chars).
 
         Args:
             bboxes: List of bounding boxes (x, y, w, h)
-            max_gap: Maximum gap to merge
+            max_gap: Maximum gap to merge (reduced from 3 to 2)
 
         Returns:
             List of merged bounding boxes
@@ -175,12 +231,12 @@ class SymbolSplitter:
         return symbols
 
     def split_to_symbols(self, image: np.ndarray,
-                        merge_gaps: bool = True) -> List[Tuple[np.ndarray, Tuple[int, int, int, int]]]:
+                        use_projection: bool = True) -> List[Tuple[np.ndarray, Tuple[int, int, int, int]]]:
         """Split text image into individual symbols.
 
         Args:
             image: Text image (BGR or grayscale)
-            merge_gaps: Whether to merge close boxes
+            use_projection: Whether to use projection method (recommended)
 
         Returns:
             List of (symbol_image, bbox) tuples sorted left to right
@@ -188,11 +244,17 @@ class SymbolSplitter:
         # Preprocess
         binary = self.preprocess_image(image)
 
-        # Find contours
-        bboxes = self.find_contours(binary)
+        # Try projection method first (more reliable for separated text)
+        if use_projection:
+            bboxes = self.split_by_projection(binary)
 
-        # Merge close boxes if needed
-        if merge_gaps:
+            # If projection found nothing or very few, fallback to contours
+            if len(bboxes) < 2:
+                bboxes = self.find_contours(binary)
+                bboxes = self.merge_close_boxes(bboxes)
+        else:
+            # Use contour method
+            bboxes = self.find_contours(binary)
             bboxes = self.merge_close_boxes(bboxes)
 
         # Sort left to right
@@ -227,7 +289,7 @@ class SymbolSplitter:
             cv2.rectangle(result, (x, y), (x + w, y + h), color, 1)
 
             # Draw index
-            cv2.putText(result, str(i), (x, y - 2),
+            cv2.putText(result, str(i + 1), (x, y - 2),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.3, color, 1, cv2.LINE_AA)
 
         return result
