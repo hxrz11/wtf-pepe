@@ -15,8 +15,36 @@ from typing import Optional, List, Tuple, Dict
 from ..utils.config import Config, RegionsConfig
 from ..core.region_cutter import RegionCutter
 from ..core.template_manager import TemplateManager
-from ..core.symbol_splitter import SymbolSplitter
 from ..utils.image_utils import load_image
+
+
+class DraggableSymbolRect(QGraphicsRectItem):
+    """Draggable rectangle for manual symbol selection."""
+
+    def __init__(self, x: int, y: int, w: int, h: int, index: int, parent=None):
+        super().__init__(x, y, w, h, parent)
+        self.index = index
+        self.setFlag(QGraphicsRectItem.ItemIsMovable, True)
+        self.setFlag(QGraphicsRectItem.ItemIsSelectable, True)
+        self.setFlag(QGraphicsRectItem.ItemSendsGeometryChanges, True)
+
+        # Set appearance
+        pen = QPen(QColor(0, 255, 0), 2)  # Green border
+        self.setPen(pen)
+        self.setBrush(QColor(0, 255, 0, 50))  # Semi-transparent green fill
+
+    def itemChange(self, change, value):
+        """Handle item changes."""
+        if change == QGraphicsRectItem.ItemSelectedHasChanged:
+            if self.isSelected():
+                pen = QPen(QColor(255, 255, 0), 3)  # Yellow when selected
+                self.setPen(pen)
+                self.setBrush(QColor(255, 255, 0, 50))
+            else:
+                pen = QPen(QColor(0, 255, 0), 2)  # Green when not selected
+                self.setPen(pen)
+                self.setBrush(QColor(0, 255, 0, 50))
+        return super().itemChange(change, value)
 
 
 class SymbolEditor(QGroupBox):
@@ -188,14 +216,14 @@ class LabelingMode(QWidget):
             config.regions_cut_dir
         )
         self.template_manager = TemplateManager(config.templates_dir)
-        self.symbol_splitter = SymbolSplitter()
 
         self.current_region_files = []
         self.current_file_index = -1
         self.current_image = None
-        self.current_symbols = []
-        self.symbol_rects = []  # List of (x, y, w, h) for each symbol
+        self.current_text = ""  # Text entered by user
+        self.symbol_rects = []  # List of DraggableSymbolRect items
         self.selected_symbol_index = -1
+        self.display_scale = 3.0  # Scale for image display
 
         self.setup_ui()
 
@@ -408,7 +436,7 @@ class LabelingMode(QWidget):
         self.text_widget = QWidget()
         text_layout = QVBoxLayout(self.text_widget)
 
-        info = QLabel("Введите текст, показанный на изображении:")
+        info = QLabel("Введите текст и выделите каждый символ вручную:")
         text_layout.addWidget(info)
 
         input_layout = QHBoxLayout()
@@ -416,12 +444,12 @@ class LabelingMode(QWidget):
 
         self.text_input = QLineEdit()
         self.text_input.setPlaceholderText("2.50")
-        self.text_input.returnPressed.connect(self.analyze_text)
+        self.text_input.returnPressed.connect(self.create_symbol_regions)
         input_layout.addWidget(self.text_input)
 
-        analyze_btn = QPushButton("Разбить на символы")
-        analyze_btn.clicked.connect(self.analyze_text)
-        input_layout.addWidget(analyze_btn)
+        create_btn = QPushButton("Создать регионы")
+        create_btn.clicked.connect(self.create_symbol_regions)
+        input_layout.addWidget(create_btn)
 
         text_layout.addLayout(input_layout)
 
@@ -429,6 +457,38 @@ class LabelingMode(QWidget):
         self.symbol_info_label = QLabel()
         self.symbol_info_label.setWordWrap(True)
         text_layout.addWidget(self.symbol_info_label)
+
+        # Editor controls
+        editor_layout = QVBoxLayout()
+
+        size_layout = QFormLayout()
+
+        # Width control
+        w_layout = QHBoxLayout()
+        self.symbol_width_spin = QSpinBox()
+        self.symbol_width_spin.setMinimum(5)
+        self.symbol_width_spin.setMaximum(200)
+        self.symbol_width_spin.setValue(15)
+        w_layout.addWidget(self.symbol_width_spin)
+        size_layout.addRow("Ширина символа:", w_layout)
+
+        # Height control
+        h_layout = QHBoxLayout()
+        self.symbol_height_spin = QSpinBox()
+        self.symbol_height_spin.setMinimum(5)
+        self.symbol_height_spin.setMaximum(200)
+        self.symbol_height_spin.setValue(20)
+        h_layout.addWidget(self.symbol_height_spin)
+        size_layout.addRow("Высота символа:", h_layout)
+
+        editor_layout.addLayout(size_layout)
+
+        # Apply size button
+        apply_size_btn = QPushButton("Применить размер ко всем")
+        apply_size_btn.clicked.connect(self.apply_symbol_size)
+        editor_layout.addWidget(apply_size_btn)
+
+        text_layout.addLayout(editor_layout)
 
         # Save button
         self.text_save_btn = QPushButton("Сохранить все символы")
@@ -525,13 +585,13 @@ class LabelingMode(QWidget):
         if self.current_image is not None:
             self.display_image(self.current_image)
 
-            # For text, auto-split symbols
-            if category_index == 3:  # Text
-                self.split_symbols()
-
     def display_image(self, image: np.ndarray, scale: float = 3.0):
         """Display image in viewer."""
         self.image_scene.clear()
+        self.display_scale = scale
+
+        # Clear symbol rects
+        self.symbol_rects.clear()
 
         # Resize for display
         display_image = cv2.resize(
@@ -555,46 +615,46 @@ class LabelingMode(QWidget):
         self.image_scene.addPixmap(pixmap)
         self.image_viewer.fitInView(self.image_scene.sceneRect(), Qt.KeepAspectRatio)
 
-    def split_symbols(self):
-        """Split image into symbols."""
-        if self.current_image is None:
-            return
-
-        self.current_symbols = self.symbol_splitter.split_to_symbols(self.current_image)
-
-        # Extract bounding boxes
-        self.symbol_rects = []
-        for _, bbox in self.current_symbols:
-            self.symbol_rects.append(bbox)
-
-        info = f"Автоматически обнаружено символов: {len(self.current_symbols)}"
-        self.symbol_info_label.setText(info)
-
-        # Clear text input
-        self.text_input.clear()
-        self.text_save_btn.setEnabled(False)
-
-    def analyze_text(self):
-        """Analyze text input and match with symbols."""
+    def create_symbol_regions(self):
+        """Create manual regions for each symbol in text."""
         text = self.text_input.text().strip()
         if not text:
             QMessageBox.warning(self, "Неверный ввод", "Введите текст")
             return
 
-        if not self.current_symbols:
-            QMessageBox.warning(self, "Ошибка", "Символы не обнаружены")
+        if self.current_image is None:
+            QMessageBox.warning(self, "Ошибка", "Нет изображения")
             return
 
-        # Check if length matches
-        if len(text) != len(self.current_symbols):
-            QMessageBox.warning(
-                self, "Несовпадение",
-                f"Длина ввода ({len(text)}) не совпадает с обнаруженными символами ({len(self.current_symbols)})\n"
-                "Скорректируйте границы символов вручную."
-            )
-            return
+        self.current_text = text
 
-        # Show symbol list
+        # Clear existing rectangles
+        for rect in self.symbol_rects:
+            self.image_scene.removeItem(rect)
+        self.symbol_rects.clear()
+
+        # Get default size
+        w = self.symbol_width_spin.value()
+        h = self.symbol_height_spin.value()
+
+        # Create rectangles for each symbol
+        # Position them in a row at the top of the image
+        img_h, img_w = self.current_image.shape[:2]
+        start_x = 10
+        start_y = 10
+        spacing = 5
+
+        for i, char in enumerate(text):
+            x = (start_x + i * (w + spacing)) * self.display_scale
+            y = start_y * self.display_scale
+            scaled_w = w * self.display_scale
+            scaled_h = h * self.display_scale
+
+            rect = DraggableSymbolRect(x, y, scaled_w, scaled_h, i)
+            self.image_scene.addItem(rect)
+            self.symbol_rects.append(rect)
+
+        # Show list of symbols
         self.symbol_list_group.show()
         self.symbol_list.clear()
 
@@ -602,80 +662,32 @@ class LabelingMode(QWidget):
             item = QListWidgetItem(f"{i+1}. '{char}'")
             self.symbol_list.addItem(item)
 
-        # Draw symbols on image
-        self.draw_symbol_boxes(scale=3.0)
+        info = f"Создано {len(text)} регионов. Перетащите каждый регион на соответствующий символ."
+        self.symbol_info_label.setText(info)
 
         self.text_save_btn.setEnabled(True)
 
-    def draw_symbol_boxes(self, scale: float = 3.0, selected_index: int = -1):
-        """Draw symbol bounding boxes on image."""
-        if self.current_image is None:
-            return
+    def apply_symbol_size(self):
+        """Apply symbol size to all rectangles."""
+        w = self.symbol_width_spin.value() * self.display_scale
+        h = self.symbol_height_spin.value() * self.display_scale
 
-        # Recreate display
-        display_image = cv2.resize(
-            self.current_image,
-            None,
-            fx=scale,
-            fy=scale,
-            interpolation=cv2.INTER_NEAREST
-        )
-
-        # Draw on display image
-        for i, (x, y, w, h) in enumerate(self.symbol_rects):
-            # Scale coordinates
-            sx = int(x * scale)
-            sy = int(y * scale)
-            sw = int(w * scale)
-            sh = int(h * scale)
-
-            # Color: yellow for selected, green for others
-            if i == selected_index:
-                color = (255, 255, 0)  # Yellow
-                thickness = 2
-            else:
-                color = (0, 255, 0)  # Green
-                thickness = 1
-
-            cv2.rectangle(display_image, (sx, sy), (sx + sw, sy + sh), color, thickness)
-
-            # Draw number
-            cv2.putText(display_image, str(i + 1), (sx, sy - 3),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1, cv2.LINE_AA)
-
-        # Display
-        height, width = display_image.shape[:2]
-        if len(display_image.shape) == 3:
-            bytes_per_line = 3 * width
-            q_image = QImage(display_image.data, width, height, bytes_per_line, QImage.Format_BGR888)
-        else:
-            bytes_per_line = width
-            q_image = QImage(display_image.data, width, height, bytes_per_line, QImage.Format_Grayscale8)
-
-        self.image_scene.clear()
-        pixmap = QPixmap.fromImage(q_image)
-        self.image_scene.addPixmap(pixmap)
-        self.image_viewer.fitInView(self.image_scene.sceneRect(), Qt.KeepAspectRatio)
+        for rect in self.symbol_rects:
+            rect_pos = rect.rect()
+            rect.setRect(rect_pos.x(), rect_pos.y(), w, h)
 
     def on_symbol_selected(self, index: int):
         """Handle symbol selection from list."""
         if index < 0 or index >= len(self.symbol_rects):
-            self.symbol_editor.hide_editor()
-            self.selected_symbol_index = -1
             return
 
-        self.selected_symbol_index = index
-        x, y, w, h = self.symbol_rects[index]
-        self.symbol_editor.load_symbol(index, x, y, w, h)
-
-        # Redraw with selected symbol highlighted
-        self.draw_symbol_boxes(scale=3.0, selected_index=index)
+        # Select corresponding rectangle
+        for i, rect in enumerate(self.symbol_rects):
+            rect.setSelected(i == index)
 
     def on_symbol_value_changed(self, index: int, x: int, y: int, w: int, h: int):
-        """Handle symbol boundary change."""
-        if 0 <= index < len(self.symbol_rects):
-            self.symbol_rects[index] = (x, y, w, h)
-            self.draw_symbol_boxes(scale=3.0, selected_index=index)
+        """Handle symbol boundary change (not used in new approach)."""
+        pass
 
     def prev_file(self):
         """Go to previous file."""
@@ -1028,20 +1040,42 @@ class LabelingMode(QWidget):
 
     def save_text_label(self):
         """Save text label."""
-        text = self.text_input.text().strip()
-        if not text or not self.current_symbols:
-            QMessageBox.warning(self, "Ошибка", "Нет текста или символов")
+        text = self.current_text.strip()
+        if not text or not self.symbol_rects:
+            QMessageBox.warning(self, "Ошибка", "Нет текста или регионов")
             return
 
         if len(text) != len(self.symbol_rects):
-            QMessageBox.warning(self, "Несовпадение", "Количество символов не совпадает")
+            QMessageBox.warning(self, "Несовпадение", "Количество символов не совпадает с регионами")
             return
 
-        # Verify templates before saving
+        # Extract symbol images from rectangles
         verification_messages = []
-        for i, char in enumerate(text):
-            x, y, w, h = self.symbol_rects[i]
+        symbol_images = []
+
+        for i, (char, rect) in enumerate(zip(text, self.symbol_rects)):
+            # Get rectangle position (in display coordinates)
+            rect_geom = rect.rect()
+            x = int(rect_geom.x() / self.display_scale)
+            y = int(rect_geom.y() / self.display_scale)
+            w = int(rect_geom.width() / self.display_scale)
+            h = int(rect_geom.height() / self.display_scale)
+
+            # Get position in scene coordinates
+            scene_pos = rect.scenePos()
+            x = int(scene_pos.x() / self.display_scale)
+            y = int(scene_pos.y() / self.display_scale)
+
+            # Ensure bounds are within image
+            img_h, img_w = self.current_image.shape[:2]
+            x = max(0, min(x, img_w - 1))
+            y = max(0, min(y, img_h - 1))
+            w = max(1, min(w, img_w - x))
+            h = max(1, min(h, img_h - y))
+
+            # Crop symbol from original image
             symbol_img = self.current_image[y:y+h, x:x+w].copy()
+            symbol_images.append(symbol_img)
 
             # Determine category
             if char.isdigit() or char == '.':
@@ -1068,15 +1102,10 @@ class LabelingMode(QWidget):
         if reply != QMessageBox.Yes:
             return
 
-        # Save each symbol with adjusted boundaries
+        # Save each symbol
         saved_count = 0
 
-        for i, char in enumerate(text):
-            x, y, w, h = self.symbol_rects[i]
-
-            # Crop symbol from original image
-            symbol_img = self.current_image[y:y+h, x:x+w].copy()
-
+        for i, (char, symbol_img) in enumerate(zip(text, symbol_images)):
             # Determine category and save
             if char.isdigit() or char == '.':
                 result = self.template_manager.save_digit_template(symbol_img, char)
@@ -1093,11 +1122,18 @@ class LabelingMode(QWidget):
                 saved_count += 1
 
         QMessageBox.information(self, "Сохранено", f"Сохранено {saved_count} шаблонов символов")
+
+        # Clear
         self.text_input.clear()
+        self.current_text = ""
         self.symbol_list.clear()
         self.symbol_list_group.hide()
         self.symbol_editor.hide_editor()
+        for rect in self.symbol_rects:
+            self.image_scene.removeItem(rect)
+        self.symbol_rects.clear()
         self.text_save_btn.setEnabled(False)
+
         self.next_file()
         self.update_statistics()
 
