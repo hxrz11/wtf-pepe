@@ -783,14 +783,18 @@ class LabelingMode(QWidget):
         self.symbol_list.clear()
 
         for i, char in enumerate(text):
-            recognized = " ✓" if i in recognized_positions and recognized_positions[i] is not None else ""
+            if i in recognized_positions and recognized_positions[i] is not None:
+                score = recognized_positions[i].get('score', 0)
+                recognized = f" ✓ ({score:.0%})"
+            else:
+                recognized = ""
             item = QListWidgetItem(f"{i+1}. '{char}'{recognized}")
             self.symbol_list.addItem(item)
 
         if recognized_count > 0:
-            info = f"Создано {len(text)} регионов. Автоматически распознано: {recognized_count}/{len(text)}. Переместите нераспознанные регионы."
+            info = f"<b>Создано {len(text)} регионов.</b><br>✓ Автоматически распознано: <b>{recognized_count}/{len(text)}</b><br>Переместите нераспознанные регионы."
         else:
-            info = f"Создано {len(text)} регионов. Перетащите каждый регион на соответствующий символ."
+            info = f"<b>Создано {len(text)} регионов.</b><br>Перетащите каждый регион на соответствующий символ."
         self.symbol_info_label.setText(info)
 
         self.text_save_btn.setEnabled(True)
@@ -808,6 +812,10 @@ class LabelingMode(QWidget):
             return {}
 
         positions = {}
+        img_gray = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2GRAY) if len(self.current_image.shape) == 3 else self.current_image
+
+        # Track used regions to avoid matching the same area twice
+        used_regions = []
 
         for i, char in enumerate(text):
             # Determine category
@@ -837,24 +845,45 @@ class LabelingMode(QWidget):
             best_match_loc = None
             best_template_size = None
 
-            img_gray = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2GRAY) if len(self.current_image.shape) == 3 else self.current_image
-
             for template_file in char_files:
                 template = cv2.imread(str(template_file), cv2.IMREAD_GRAYSCALE)
                 if template is None:
                     continue
 
-                # Template matching
-                result = cv2.matchTemplate(img_gray, template, cv2.TM_CCOEFF_NORMED)
-                min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+                # Template matching with multiple scales
+                for scale in [1.0, 0.95, 1.05]:  # Try slight size variations
+                    if scale != 1.0:
+                        w_scaled = int(template.shape[1] * scale)
+                        h_scaled = int(template.shape[0] * scale)
+                        if w_scaled < 1 or h_scaled < 1:
+                            continue
+                        template_scaled = cv2.resize(template, (w_scaled, h_scaled))
+                    else:
+                        template_scaled = template
 
-                if max_val > best_match_score:
-                    best_match_score = max_val
-                    best_match_loc = max_loc
-                    best_template_size = (template.shape[1], template.shape[0])  # (w, h)
+                    # Template matching
+                    result = cv2.matchTemplate(img_gray, template_scaled, cv2.TM_CCOEFF_NORMED)
+                    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
 
-            # If good match found (>70%), use it
-            if best_match_score > 0.7 and best_match_loc is not None:
+                    # Check if this location overlaps with already used regions
+                    x, y = max_loc
+                    w, h = template_scaled.shape[1], template_scaled.shape[0]
+
+                    overlaps = False
+                    for used_x, used_y, used_w, used_h in used_regions:
+                        # Check if rectangles overlap
+                        if not (x + w < used_x or used_x + used_w < x or
+                               y + h < used_y or used_y + used_h < y):
+                            overlaps = True
+                            break
+
+                    if not overlaps and max_val > best_match_score:
+                        best_match_score = max_val
+                        best_match_loc = max_loc
+                        best_template_size = (template_scaled.shape[1], template_scaled.shape[0])
+
+            # Lower threshold to 60% for better recognition
+            if best_match_score > 0.60 and best_match_loc is not None:
                 positions[i] = {
                     'x': best_match_loc[0],
                     'y': best_match_loc[1],
@@ -862,6 +891,9 @@ class LabelingMode(QWidget):
                     'h': best_template_size[1],
                     'score': best_match_score
                 }
+                # Mark this region as used
+                used_regions.append((best_match_loc[0], best_match_loc[1],
+                                   best_template_size[0], best_template_size[1]))
             else:
                 positions[i] = None
 
@@ -908,7 +940,14 @@ class LabelingMode(QWidget):
         self.selected_symbol_label.setText(f"Символ #{index + 1}: '{char}'")
 
         # Show recognition status if available
-        self.recognition_status_label.setText("")
+        # Check if this symbol was auto-recognized by checking if position is close to default
+        # (Auto-recognized symbols are not at y=10)
+        if y > 20:  # Not at default position (10px from top)
+            self.recognition_status_label.setText("✓ Автоматически распознан")
+            self.recognition_status_label.setStyleSheet("color: #00aa00; font-weight: bold;")
+        else:
+            self.recognition_status_label.setText("⚠ Требует размещения")
+            self.recognition_status_label.setStyleSheet("color: #ff6600; font-weight: bold;")
 
         # Block signals to avoid recursion
         self.symbol_x_spin.blockSignals(True)
