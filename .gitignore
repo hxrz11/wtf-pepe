@@ -1,0 +1,29 @@
+# User-specific region configuration - should not be tracked
+poker_vision/regions.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+poker_vision/screenshots/
+poker_vision/regions_cut/
+poker_vision/templates/
