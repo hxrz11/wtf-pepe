@@ -241,7 +241,9 @@ class LabelingMode(QWidget):
         category_layout = QVBoxLayout()
 
         self.category_combo = QComboBox()
-        self.category_combo.addItem("Карты")
+        self.category_combo.addItem("Карты (полные)")
+        self.category_combo.addItem("Ранги карт")
+        self.category_combo.addItem("Масти карт")
         self.category_combo.addItem("Комбинации")
         self.category_combo.addItem("Маркеры")
         self.category_combo.addItem("Текст и цифры")
@@ -268,6 +270,8 @@ class LabelingMode(QWidget):
         self.label_layout = QVBoxLayout()
 
         self._setup_card_labeling()
+        self._setup_rank_labeling()
+        self._setup_suit_labeling()
         self._setup_combo_labeling()
         self._setup_marker_labeling()
         self._setup_text_labeling()
@@ -394,6 +398,99 @@ class LabelingMode(QWidget):
 
         self.card_widget.hide()
         self.label_layout.addWidget(self.card_widget)
+
+    def _setup_rank_labeling(self):
+        """Setup card rank labeling interface."""
+        self.rank_widget = QWidget()
+        rank_layout = QVBoxLayout(self.rank_widget)
+
+        # Rank reference
+        rank_ref = QLabel(
+            "<b>Валидные ранги:</b><br>"
+            "2, 3, 4, 5, 6, 7, 8, 9, T, J, Q, K, A"
+        )
+        rank_ref.setStyleSheet("background-color: #f0f0f0; padding: 5px; border: 1px solid #ccc;")
+        rank_layout.addWidget(rank_ref)
+
+        info = QLabel("Введите ранг карты (одну букву/цифру):")
+        rank_layout.addWidget(info)
+
+        input_layout = QHBoxLayout()
+        input_layout.addWidget(QLabel("Ранг:"))
+
+        self.rank_input = QLineEdit()
+        self.rank_input.setMaxLength(1)
+        self.rank_input.setPlaceholderText("A")
+        self.rank_input.returnPressed.connect(self.save_rank_label)
+        input_layout.addWidget(self.rank_input)
+
+        save_btn = QPushButton("Сохранить")
+        save_btn.clicked.connect(self.save_rank_label)
+        input_layout.addWidget(save_btn)
+
+        rank_layout.addLayout(input_layout)
+
+        # Recognition status
+        self.rank_recognition_label = QLabel("")
+        self.rank_recognition_label.setAlignment(Qt.AlignCenter)
+        self.rank_recognition_label.setStyleSheet("background-color: #e8f5e9; padding: 8px; border: 1px solid #4caf50; border-radius: 4px;")
+        self.rank_recognition_label.setWordWrap(True)
+        self.rank_recognition_label.setVisible(False)
+        rank_layout.addWidget(self.rank_recognition_label)
+
+        self.rank_widget.hide()
+        self.label_layout.addWidget(self.rank_widget)
+
+    def _setup_suit_labeling(self):
+        """Setup card suit labeling interface."""
+        self.suit_widget = QWidget()
+        suit_layout = QVBoxLayout(self.suit_widget)
+
+        # Suit reference
+        suit_ref = QLabel(
+            "<b>Выберите масть:</b><br>"
+            "♣ Трефы = <b>c</b> (clubs)<br>"
+            "♦ Бубны = <b>d</b> (diamonds)<br>"
+            "♥ Черви = <b>h</b> (hearts)<br>"
+            "♠ Пики = <b>s</b> (spades)"
+        )
+        suit_ref.setStyleSheet("background-color: #f0f0f0; padding: 5px; border: 1px solid #ccc;")
+        suit_layout.addWidget(suit_ref)
+
+        info = QLabel("Выберите масть карты:")
+        suit_layout.addWidget(info)
+
+        # Suit selection buttons
+        btn_layout = QHBoxLayout()
+
+        self.suit_c_btn = QPushButton("♣ c")
+        self.suit_c_btn.clicked.connect(lambda: self.save_suit_label('c'))
+        btn_layout.addWidget(self.suit_c_btn)
+
+        self.suit_d_btn = QPushButton("♦ d")
+        self.suit_d_btn.clicked.connect(lambda: self.save_suit_label('d'))
+        btn_layout.addWidget(self.suit_d_btn)
+
+        self.suit_h_btn = QPushButton("♥ h")
+        self.suit_h_btn.clicked.connect(lambda: self.save_suit_label('h'))
+        btn_layout.addWidget(self.suit_h_btn)
+
+        self.suit_s_btn = QPushButton("♠ s")
+        self.suit_s_btn.clicked.connect(lambda: self.save_suit_label('s'))
+        btn_layout.addWidget(self.suit_s_btn)
+
+        suit_layout.addLayout(btn_layout)
+
+        # Recognition status
+        self.suit_recognition_label = QLabel("")
+        self.suit_recognition_label.setAlignment(Qt.AlignCenter)
+        self.suit_recognition_label.setStyleSheet("background-color: #e8f5e9; padding: 8px; border: 1px solid #4caf50; border-radius: 4px;")
+        self.suit_recognition_label.setWordWrap(True)
+        self.suit_recognition_label.setVisible(False)
+        suit_layout.addWidget(self.suit_recognition_label)
+
+        self.suit_widget.hide()
+        self.label_layout.addWidget(self.suit_widget)
 
     def _setup_combo_labeling(self):
         """Setup combo labeling interface."""
@@ -603,6 +700,8 @@ class LabelingMode(QWidget):
         """Handle category selection change."""
         # Hide all labeling widgets
         self.card_widget.hide()
+        self.rank_widget.hide()
+        self.suit_widget.hide()
         self.combo_widget.hide()
         self.marker_widget.hide()
         self.text_widget.hide()
@@ -610,13 +709,17 @@ class LabelingMode(QWidget):
         self.symbol_editor.hide_editor()
 
         # Show appropriate widget
-        if index == 0:  # Cards
+        if index == 0:  # Cards (full)
             self.card_widget.show()
-        elif index == 1:  # Combos
+        elif index == 1:  # Card ranks
+            self.rank_widget.show()
+        elif index == 2:  # Card suits
+            self.suit_widget.show()
+        elif index == 3:  # Combos
             self.combo_widget.show()
-        elif index == 2:  # Markers
+        elif index == 4:  # Markers
             self.marker_widget.show()
-        elif index == 3:  # Text
+        elif index == 5:  # Text
             self.text_widget.show()
 
     def load_region_files(self):
@@ -624,13 +727,17 @@ class LabelingMode(QWidget):
         category_index = self.category_combo.currentIndex()
 
         # Get all regions for category
-        if category_index == 0:  # Cards
-            region_types = ['card']
-        elif category_index == 1:  # Combos
+        if category_index == 0:  # Cards (full)
+            region_types = ['card', 'card_full']
+        elif category_index == 1:  # Card ranks
+            region_types = ['card_rank']
+        elif category_index == 2:  # Card suits
+            region_types = ['card_suit']
+        elif category_index == 3:  # Combos
             region_types = ['combo']
-        elif category_index == 2:  # Markers
+        elif category_index == 4:  # Markers
             region_types = ['marker']
-        elif category_index == 3:  # Text
+        elif category_index == 5:  # Text
             region_types = ['text_digits', 'text_mixed']
         else:
             return
@@ -1111,6 +1218,63 @@ class LabelingMode(QWidget):
         else:
             QMessageBox.warning(self, "Ошибка", "Не удалось сохранить шаблон")
 
+    def save_rank_label(self):
+        """Save card rank label."""
+        if self.current_image is None:
+            return
+
+        rank = self.rank_input.text().strip().upper()
+        if len(rank) != 1:
+            QMessageBox.warning(self, "Неверный ввод", "Ранг должен быть одним символом")
+            return
+
+        if rank not in self.template_manager.CARD_RANKS:
+            QMessageBox.warning(
+                self, "Неверный ранг",
+                f"Ранг должен быть одним из: {', '.join(self.template_manager.CARD_RANKS)}"
+            )
+            return
+
+        # Save template (will auto-convert to grayscale)
+        result = self.template_manager.save_card_rank_template(self.current_image, rank)
+
+        if result:
+            QMessageBox.information(self, "Сохранено", f"Сохранён шаблон ранга {rank}")
+            self.rank_input.clear()
+            self.next_file()
+            self.update_statistics()
+        else:
+            QMessageBox.warning(self, "Ошибка", "Не удалось сохранить шаблон")
+
+    def save_suit_label(self, suit: str):
+        """Save card suit label.
+
+        Args:
+            suit: Suit character (c, d, h, s)
+        """
+        if self.current_image is None:
+            return
+
+        if suit not in self.template_manager.CARD_SUITS:
+            QMessageBox.warning(
+                self, "Неверная масть",
+                f"Масть должна быть одной из: c, d, h, s"
+            )
+            return
+
+        # Save template (will auto-convert to grayscale)
+        result = self.template_manager.save_card_suit_template(self.current_image, suit)
+
+        suit_names = {'c': '♣', 'd': '♦', 'h': '♥', 's': '♠'}
+        suit_display = suit_names.get(suit, suit)
+
+        if result:
+            QMessageBox.information(self, "Сохранено", f"Сохранён шаблон масти {suit_display} ({suit})")
+            self.next_file()
+            self.update_statistics()
+        else:
+            QMessageBox.warning(self, "Ошибка", "Не удалось сохранить шаблон")
+
     def save_combo_label(self):
         """Save combo label."""
         if self.current_image is None:
@@ -1462,9 +1626,13 @@ class LabelingMode(QWidget):
         stats = self.template_manager.get_statistics()
 
         cards_existing, cards_total = self.template_manager.get_cards_completion()
+        ranks_existing, ranks_total = self.template_manager.get_ranks_completion()
+        suits_existing, suits_total = self.template_manager.get_suits_completion()
 
         stats_text = "Статистика шаблонов:\n"
-        stats_text += f"  Карты: {cards_existing}/{cards_total}\n"
+        stats_text += f"  Карты (полные): {cards_existing}/{cards_total}\n"
+        stats_text += f"  Ранги: {ranks_existing}/{ranks_total}\n"
+        stats_text += f"  Масти: {suits_existing}/{suits_total}\n"
         stats_text += f"  Цифры: {stats.get('digits', 0)}\n"
         stats_text += f"  Комбинации: {stats.get('combos', 0)}/{len(self.template_manager.COMBO_NAMES)}\n"
         stats_text += f"  Маркеры: {stats.get('markers', 0)}/{len(self.template_manager.MARKER_NAMES)}\n"

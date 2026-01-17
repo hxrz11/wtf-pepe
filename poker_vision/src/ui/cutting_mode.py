@@ -179,9 +179,12 @@ class ImageViewer(QGraphicsView):
         # Color map for region types
         color_map = {
             'card': QColor(0, 255, 0),
+            'card_rank': QColor(0, 255, 255),      # Cyan
+            'card_suit': QColor(255, 0, 255),      # Magenta
+            'card_full': QColor(255, 255, 0),      # Yellow
             'text_digits': QColor(255, 0, 0),
             'text_mixed': QColor(255, 255, 0),
-            'marker': QColor(255, 0, 255),
+            'marker': QColor(128, 0, 128),         # Purple
             'combo': QColor(255, 165, 0)
         }
 

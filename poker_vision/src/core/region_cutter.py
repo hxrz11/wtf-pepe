@@ -104,7 +104,7 @@ class RegionCutter:
 
         Args:
             screenshot_path: Path to screenshot file
-            regions: Dictionary of region_id -> {x, y, w, h}
+            regions: Dictionary of region_id -> {x, y, w, h, type}
 
         Returns:
             Dictionary of region_id -> saved file path
@@ -122,6 +122,7 @@ class RegionCutter:
             y = coords.get('y', 0)
             w = coords.get('w', 0)
             h = coords.get('h', 0)
+            region_type = coords.get('type', '')
 
             # Skip invalid regions
             if w <= 0 or h <= 0:
@@ -131,6 +132,11 @@ class RegionCutter:
             region = self.cut_region(image, x, y, w, h)
             if region is None:
                 continue
+
+            # Convert to grayscale for card_rank and card_suit
+            if region_type in ['card_rank', 'card_suit']:
+                if len(region.shape) == 3:
+                    region = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
 
             # Create output directory for this region
             region_dir = self.output_dir / region_id
@@ -238,11 +244,14 @@ class RegionCutter:
 
         # Define colors for different region types
         color_map = {
-            'card': (0, 255, 0),      # Green
+            'card': (0, 255, 0),         # Green
+            'card_rank': (255, 255, 0),  # Cyan
+            'card_suit': (255, 0, 255),  # Magenta
+            'card_full': (0, 255, 255),  # Yellow
             'text_digits': (255, 0, 0),  # Blue
-            'text_mixed': (0, 255, 255),  # Yellow
-            'marker': (255, 0, 255),   # Magenta
-            'combo': (0, 165, 255)     # Orange
+            'text_mixed': (0, 255, 255), # Yellow
+            'marker': (128, 0, 128),     # Purple
+            'combo': (0, 165, 255)       # Orange
         }
 
         for region_id, coords in regions.items():

@@ -43,8 +43,8 @@ class TemplateManager:
 
     def _ensure_directories(self) -> None:
         """Ensure all template subdirectories exist."""
-        subdirs = ['cards', 'digits', 'combos', 'letters_lat',
-                  'letters_cyr', 'special', 'markers']
+        subdirs = ['cards', 'card_ranks', 'card_suits', 'digits', 'combos',
+                  'letters_lat', 'letters_cyr', 'special', 'markers']
 
         for subdir in subdirs:
             (self.templates_dir / subdir).mkdir(parents=True, exist_ok=True)
@@ -115,6 +115,118 @@ class TemplateManager:
         """
         total = len(self.CARD_RANKS) * len(self.CARD_SUITS)  # 52
         existing = len(self.get_existing_cards())
+        return (existing, total)
+
+    def save_card_rank_template(self, image: np.ndarray, rank: str) -> Optional[Path]:
+        """Save card rank template (grayscale).
+
+        Args:
+            image: Rank image (will be converted to grayscale if needed)
+            rank: Card rank (2-9, T, J, Q, K, A)
+
+        Returns:
+            Path to saved template or None if failed
+        """
+        if rank.upper() not in self.CARD_RANKS:
+            return None
+
+        # Convert to grayscale if needed
+        if len(image.shape) == 3:
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        # Generate unique filename with timestamp
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+
+        filename = f"{rank.upper()}_{timestamp}.png"
+        output_path = self.templates_dir / 'card_ranks' / filename
+
+        success = cv2.imwrite(str(output_path), image)
+        return output_path if success else None
+
+    def save_card_suit_template(self, image: np.ndarray, suit: str) -> Optional[Path]:
+        """Save card suit template (grayscale).
+
+        Args:
+            image: Suit image (will be converted to grayscale if needed)
+            suit: Card suit (c, d, h, s)
+
+        Returns:
+            Path to saved template or None if failed
+        """
+        if suit.lower() not in self.CARD_SUITS:
+            return None
+
+        # Convert to grayscale if needed
+        if len(image.shape) == 3:
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        # Generate unique filename with timestamp
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+
+        filename = f"{suit.lower()}_{timestamp}.png"
+        output_path = self.templates_dir / 'card_suits' / filename
+
+        success = cv2.imwrite(str(output_path), image)
+        return output_path if success else None
+
+    def get_existing_ranks(self) -> List[str]:
+        """Get list of existing rank templates.
+
+        Returns:
+            List of unique ranks that have templates
+        """
+        ranks_dir = self.templates_dir / 'card_ranks'
+        if not ranks_dir.exists():
+            return []
+
+        ranks = set()
+        for file in ranks_dir.glob("*.png"):
+            # Extract rank from filename (e.g., "2_20250117_123456.png" -> "2")
+            rank = file.stem.split('_')[0]
+            if rank in self.CARD_RANKS:
+                ranks.add(rank)
+
+        return sorted(list(ranks), key=lambda r: self.CARD_RANKS.index(r))
+
+    def get_existing_suits(self) -> List[str]:
+        """Get list of existing suit templates.
+
+        Returns:
+            List of unique suits that have templates
+        """
+        suits_dir = self.templates_dir / 'card_suits'
+        if not suits_dir.exists():
+            return []
+
+        suits = set()
+        for file in suits_dir.glob("*.png"):
+            # Extract suit from filename (e.g., "c_20250117_123456.png" -> "c")
+            suit = file.stem.split('_')[0]
+            if suit in self.CARD_SUITS:
+                suits.add(suit)
+
+        return sorted(list(suits))
+
+    def get_ranks_completion(self) -> Tuple[int, int]:
+        """Get rank templates completion status.
+
+        Returns:
+            Tuple of (existing_count, total_count)
+        """
+        total = len(self.CARD_RANKS)  # 13
+        existing = len(self.get_existing_ranks())
+        return (existing, total)
+
+    def get_suits_completion(self) -> Tuple[int, int]:
+        """Get suit templates completion status.
+
+        Returns:
+            Tuple of (existing_count, total_count)
+        """
+        total = len(self.CARD_SUITS)  # 4
+        existing = len(self.get_existing_suits())
         return (existing, total)
 
     def save_combo_template(self, image: np.ndarray, combo_name: str) -> Optional[Path]:
@@ -295,8 +407,8 @@ class TemplateManager:
         """
         stats = {}
 
-        categories = ['cards', 'digits', 'combos', 'letters_lat',
-                     'letters_cyr', 'special', 'markers']
+        categories = ['cards', 'card_ranks', 'card_suits', 'digits', 'combos',
+                     'letters_lat', 'letters_cyr', 'special', 'markers']
 
         for category in categories:
             category_dir = self.templates_dir / category
