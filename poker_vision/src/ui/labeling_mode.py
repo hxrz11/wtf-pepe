@@ -242,8 +242,10 @@ class LabelingMode(QWidget):
 
         self.category_combo = QComboBox()
         self.category_combo.addItem("Карты (полные)")
-        self.category_combo.addItem("Ранги карт")
-        self.category_combo.addItem("Масти карт")
+        self.category_combo.addItem("Ранги карт руки")
+        self.category_combo.addItem("Масти карт руки")
+        self.category_combo.addItem("Ранги карт стола")
+        self.category_combo.addItem("Масти карт стола")
         self.category_combo.addItem("Комбинации")
         self.category_combo.addItem("Маркеры")
         self.category_combo.addItem("Текст и цифры")
@@ -711,15 +713,19 @@ class LabelingMode(QWidget):
         # Show appropriate widget
         if index == 0:  # Cards (full)
             self.card_widget.show()
-        elif index == 1:  # Card ranks
+        elif index == 1:  # Hand ranks
             self.rank_widget.show()
-        elif index == 2:  # Card suits
+        elif index == 2:  # Hand suits
             self.suit_widget.show()
-        elif index == 3:  # Combos
+        elif index == 3:  # Board ranks
+            self.rank_widget.show()
+        elif index == 4:  # Board suits
+            self.suit_widget.show()
+        elif index == 5:  # Combos
             self.combo_widget.show()
-        elif index == 4:  # Markers
+        elif index == 6:  # Markers
             self.marker_widget.show()
-        elif index == 5:  # Text
+        elif index == 7:  # Text
             self.text_widget.show()
 
     def load_region_files(self):
@@ -727,17 +733,26 @@ class LabelingMode(QWidget):
         category_index = self.category_combo.currentIndex()
 
         # Get all regions for category
+        region_filter = None
         if category_index == 0:  # Cards (full)
             region_types = ['card', 'card_full']
-        elif category_index == 1:  # Card ranks
+        elif category_index == 1:  # Hand ranks
             region_types = ['card_rank']
-        elif category_index == 2:  # Card suits
+            region_filter = lambda rid: rid.startswith('hand_rank_')
+        elif category_index == 2:  # Hand suits
             region_types = ['card_suit']
-        elif category_index == 3:  # Combos
+            region_filter = lambda rid: rid.startswith('hand_suit_')
+        elif category_index == 3:  # Board ranks
+            region_types = ['card_rank']
+            region_filter = lambda rid: rid.startswith('board_rank_')
+        elif category_index == 4:  # Board suits
+            region_types = ['card_suit']
+            region_filter = lambda rid: rid.startswith('board_suit_')
+        elif category_index == 5:  # Combos
             region_types = ['combo']
-        elif category_index == 4:  # Markers
+        elif category_index == 6:  # Markers
             region_types = ['marker']
-        elif category_index == 5:  # Text
+        elif category_index == 7:  # Text
             region_types = ['text_digits', 'text_mixed']
         else:
             return
@@ -747,6 +762,9 @@ class LabelingMode(QWidget):
         for region_type in region_types:
             regions = self.regions_config.get_regions_by_type(region_type)
             for region_id in regions.keys():
+                # Apply region filter if specified
+                if region_filter and not region_filter(region_id):
+                    continue
                 files = self.region_cutter.get_region_files(region_id)
                 all_files.extend(files)
 
