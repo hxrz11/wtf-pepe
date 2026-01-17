@@ -202,11 +202,15 @@ class TemplateManager:
         if digit not in self.DIGITS:
             return None
 
+        # Generate unique filename with timestamp
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+
         # Use special naming for dot
         if digit == '.':
-            filename = "dot.png"
+            filename = f"dot_{timestamp}.png"
         else:
-            filename = f"{digit}.png"
+            filename = f"{digit}_{timestamp}.png"
 
         output_path = self.templates_dir / 'digits' / filename
 
@@ -228,12 +232,16 @@ class TemplateManager:
         if category not in ['letters_lat', 'letters_cyr', 'special']:
             return None
 
+        # Generate unique filename with timestamp
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+
         # Create safe filename
         if symbol.isalnum():
-            filename = f"{symbol}.png"
+            filename = f"{symbol}_{timestamp}.png"
         else:
             # For special characters, use their Unicode code point
-            filename = f"char_{ord(symbol):04x}.png"
+            filename = f"char_{ord(symbol):04x}_{timestamp}.png"
 
         output_path = self.templates_dir / category / filename
 
