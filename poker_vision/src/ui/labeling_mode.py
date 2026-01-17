@@ -835,7 +835,25 @@ class LabelingMode(QWidget):
                 positions[i] = None
                 continue
 
-            char_files = list(category_dir.glob(f'{char}_*.png'))
+            # Find template files - handle both formats (with and without suffix)
+            if category == 'digits' and char == '.':
+                # Dot is saved as "dot.png"
+                char_files = list(category_dir.glob('dot.png'))
+            elif category == 'digits':
+                # Digits saved as "0.png", "1.png", etc.
+                char_files = list(category_dir.glob(f'{char}.png'))
+            else:
+                # Letters and special chars - try both formats
+                char_files = list(category_dir.glob(f'{char}_*.png'))
+                if not char_files:
+                    char_files = list(category_dir.glob(f'{char}.png'))
+                # Also try Unicode format for special chars
+                if not char_files and not char.isalnum():
+                    unicode_name = f"char_{ord(char):04x}.png"
+                    unicode_file = category_dir / unicode_name
+                    if unicode_file.exists():
+                        char_files = [unicode_file]
+
             if not char_files:
                 positions[i] = None
                 continue
