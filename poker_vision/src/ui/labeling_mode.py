@@ -759,6 +759,7 @@ class LabelingMode(QWidget):
 
         # Collect all files from all regions of these types
         all_files = []
+        loaded_regions = []  # For debug
         for region_type in region_types:
             regions = self.regions_config.get_regions_by_type(region_type)
             for region_id in regions.keys():
@@ -766,6 +767,8 @@ class LabelingMode(QWidget):
                 if region_filter and not region_filter(region_id):
                     continue
                 files = self.region_cutter.get_region_files(region_id)
+                if files:
+                    loaded_regions.append(region_id)
                 all_files.extend(files)
 
         if not all_files:
@@ -775,6 +778,11 @@ class LabelingMode(QWidget):
                 "Сначала нарежьте регионы в режиме Нарезки."
             )
             return
+
+        # Show debug info
+        region_list = ", ".join(loaded_regions) if loaded_regions else "нет"
+        print(f"DEBUG: Загружено регионов: {region_list}")
+        print(f"DEBUG: Всего файлов: {len(all_files)}")
 
         self.current_region_files = all_files
         self.current_file_index = 0
