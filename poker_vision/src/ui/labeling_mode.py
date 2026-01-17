@@ -458,37 +458,122 @@ class LabelingMode(QWidget):
         self.symbol_info_label.setWordWrap(True)
         text_layout.addWidget(self.symbol_info_label)
 
-        # Editor controls
-        editor_layout = QVBoxLayout()
+        # Default size controls
+        default_size_group = QGroupBox("Размер по умолчанию")
+        default_layout = QVBoxLayout()
 
         size_layout = QFormLayout()
 
         # Width control
-        w_layout = QHBoxLayout()
         self.symbol_width_spin = QSpinBox()
-        self.symbol_width_spin.setMinimum(5)
+        self.symbol_width_spin.setMinimum(1)
         self.symbol_width_spin.setMaximum(200)
         self.symbol_width_spin.setValue(15)
-        w_layout.addWidget(self.symbol_width_spin)
-        size_layout.addRow("Ширина символа:", w_layout)
+        size_layout.addRow("Ширина:", self.symbol_width_spin)
 
         # Height control
-        h_layout = QHBoxLayout()
         self.symbol_height_spin = QSpinBox()
-        self.symbol_height_spin.setMinimum(5)
+        self.symbol_height_spin.setMinimum(1)
         self.symbol_height_spin.setMaximum(200)
         self.symbol_height_spin.setValue(20)
-        h_layout.addWidget(self.symbol_height_spin)
-        size_layout.addRow("Высота символа:", h_layout)
+        size_layout.addRow("Высота:", self.symbol_height_spin)
 
-        editor_layout.addLayout(size_layout)
+        default_layout.addLayout(size_layout)
 
-        # Apply size button
-        apply_size_btn = QPushButton("Применить размер ко всем")
-        apply_size_btn.clicked.connect(self.apply_symbol_size)
-        editor_layout.addWidget(apply_size_btn)
+        # Apply to all button
+        apply_all_btn = QPushButton("Применить ко всем")
+        apply_all_btn.clicked.connect(self.apply_symbol_size_to_all)
+        default_layout.addWidget(apply_all_btn)
 
-        text_layout.addLayout(editor_layout)
+        default_size_group.setLayout(default_layout)
+        text_layout.addWidget(default_size_group)
+
+        # Individual symbol editor
+        self.symbol_edit_group = QGroupBox("Редактирование выбранного символа")
+        symbol_edit_layout = QVBoxLayout()
+
+        self.selected_symbol_label = QLabel("Выберите символ из списка")
+        self.selected_symbol_label.setAlignment(Qt.AlignCenter)
+        font = self.selected_symbol_label.font()
+        font.setBold(True)
+        self.selected_symbol_label.setFont(font)
+        symbol_edit_layout.addWidget(self.selected_symbol_label)
+
+        edit_form = QFormLayout()
+
+        # X
+        x_layout = QHBoxLayout()
+        self.symbol_x_spin = QSpinBox()
+        self.symbol_x_spin.setMinimum(0)
+        self.symbol_x_spin.setMaximum(10000)
+        self.symbol_x_spin.valueChanged.connect(self.on_selected_symbol_changed)
+        x_layout.addWidget(self.symbol_x_spin, stretch=1)
+        x_dec = QPushButton("◄")
+        x_dec.setMaximumWidth(30)
+        x_dec.clicked.connect(lambda: self.symbol_x_spin.setValue(self.symbol_x_spin.value() - 1))
+        x_layout.addWidget(x_dec)
+        x_inc = QPushButton("►")
+        x_inc.setMaximumWidth(30)
+        x_inc.clicked.connect(lambda: self.symbol_x_spin.setValue(self.symbol_x_spin.value() + 1))
+        x_layout.addWidget(x_inc)
+        edit_form.addRow("X:", x_layout)
+
+        # Y
+        y_layout = QHBoxLayout()
+        self.symbol_y_spin = QSpinBox()
+        self.symbol_y_spin.setMinimum(0)
+        self.symbol_y_spin.setMaximum(10000)
+        self.symbol_y_spin.valueChanged.connect(self.on_selected_symbol_changed)
+        y_layout.addWidget(self.symbol_y_spin, stretch=1)
+        y_dec = QPushButton("◄")
+        y_dec.setMaximumWidth(30)
+        y_dec.clicked.connect(lambda: self.symbol_y_spin.setValue(self.symbol_y_spin.value() - 1))
+        y_layout.addWidget(y_dec)
+        y_inc = QPushButton("►")
+        y_inc.setMaximumWidth(30)
+        y_inc.clicked.connect(lambda: self.symbol_y_spin.setValue(self.symbol_y_spin.value() + 1))
+        y_layout.addWidget(y_inc)
+        edit_form.addRow("Y:", y_layout)
+
+        # Width
+        w_layout = QHBoxLayout()
+        self.symbol_w_spin = QSpinBox()
+        self.symbol_w_spin.setMinimum(1)
+        self.symbol_w_spin.setMaximum(10000)
+        self.symbol_w_spin.valueChanged.connect(self.on_selected_symbol_changed)
+        w_layout.addWidget(self.symbol_w_spin, stretch=1)
+        w_dec = QPushButton("◄")
+        w_dec.setMaximumWidth(30)
+        w_dec.clicked.connect(lambda: self.symbol_w_spin.setValue(self.symbol_w_spin.value() - 1))
+        w_layout.addWidget(w_dec)
+        w_inc = QPushButton("►")
+        w_inc.setMaximumWidth(30)
+        w_inc.clicked.connect(lambda: self.symbol_w_spin.setValue(self.symbol_w_spin.value() + 1))
+        w_layout.addWidget(w_inc)
+        edit_form.addRow("W:", w_layout)
+
+        # Height
+        h_layout = QHBoxLayout()
+        self.symbol_h_spin = QSpinBox()
+        self.symbol_h_spin.setMinimum(1)
+        self.symbol_h_spin.setMaximum(10000)
+        self.symbol_h_spin.valueChanged.connect(self.on_selected_symbol_changed)
+        h_layout.addWidget(self.symbol_h_spin, stretch=1)
+        h_dec = QPushButton("◄")
+        h_dec.setMaximumWidth(30)
+        h_dec.clicked.connect(lambda: self.symbol_h_spin.setValue(self.symbol_h_spin.value() - 1))
+        h_layout.addWidget(h_dec)
+        h_inc = QPushButton("►")
+        h_inc.setMaximumWidth(30)
+        h_inc.clicked.connect(lambda: self.symbol_h_spin.setValue(self.symbol_h_spin.value() + 1))
+        h_layout.addWidget(h_inc)
+        edit_form.addRow("H:", h_layout)
+
+        symbol_edit_layout.addLayout(edit_form)
+
+        self.symbol_edit_group.setLayout(symbol_edit_layout)
+        self.symbol_edit_group.setVisible(False)
+        text_layout.addWidget(self.symbol_edit_group)
 
         # Save button
         self.text_save_btn = QPushButton("Сохранить все символы")
@@ -667,26 +752,85 @@ class LabelingMode(QWidget):
 
         self.text_save_btn.setEnabled(True)
 
-    def apply_symbol_size(self):
-        """Apply symbol size to all rectangles."""
+    def apply_symbol_size_to_all(self):
+        """Apply default symbol size to all rectangles."""
         w = self.symbol_width_spin.value() * self.display_scale
         h = self.symbol_height_spin.value() * self.display_scale
 
         for rect in self.symbol_rects:
-            rect_pos = rect.rect()
-            rect.setRect(rect_pos.x(), rect_pos.y(), w, h)
+            current_rect = rect.rect()
+            rect.setRect(current_rect.x(), current_rect.y(), w, h)
 
     def on_symbol_selected(self, index: int):
         """Handle symbol selection from list."""
         if index < 0 or index >= len(self.symbol_rects):
+            self.symbol_edit_group.setVisible(False)
+            self.selected_symbol_index = -1
             return
+
+        self.selected_symbol_index = index
 
         # Select corresponding rectangle
         for i, rect in enumerate(self.symbol_rects):
             rect.setSelected(i == index)
 
+        # Update editor with current symbol values
+        rect = self.symbol_rects[index]
+        scene_pos = rect.scenePos()
+        rect_geom = rect.rect()
+
+        # Convert to original image coordinates
+        x = int(scene_pos.x() / self.display_scale)
+        y = int(scene_pos.y() / self.display_scale)
+        w = int(rect_geom.width() / self.display_scale)
+        h = int(rect_geom.height() / self.display_scale)
+
+        # Update label
+        char = self.current_text[index] if index < len(self.current_text) else '?'
+        self.selected_symbol_label.setText(f"Символ #{index + 1}: '{char}'")
+
+        # Block signals to avoid recursion
+        self.symbol_x_spin.blockSignals(True)
+        self.symbol_y_spin.blockSignals(True)
+        self.symbol_w_spin.blockSignals(True)
+        self.symbol_h_spin.blockSignals(True)
+
+        self.symbol_x_spin.setValue(x)
+        self.symbol_y_spin.setValue(y)
+        self.symbol_w_spin.setValue(w)
+        self.symbol_h_spin.setValue(h)
+
+        self.symbol_x_spin.blockSignals(False)
+        self.symbol_y_spin.blockSignals(False)
+        self.symbol_w_spin.blockSignals(False)
+        self.symbol_h_spin.blockSignals(False)
+
+        self.symbol_edit_group.setVisible(True)
+
+    def on_selected_symbol_changed(self):
+        """Handle changes to selected symbol position/size."""
+        if self.selected_symbol_index < 0 or self.selected_symbol_index >= len(self.symbol_rects):
+            return
+
+        # Get values from spinboxes (in original coordinates)
+        x = self.symbol_x_spin.value()
+        y = self.symbol_y_spin.value()
+        w = self.symbol_w_spin.value()
+        h = self.symbol_h_spin.value()
+
+        # Convert to display coordinates
+        dx = x * self.display_scale
+        dy = y * self.display_scale
+        dw = w * self.display_scale
+        dh = h * self.display_scale
+
+        # Update rectangle
+        rect = self.symbol_rects[self.selected_symbol_index]
+        rect.setPos(dx, dy)
+        rect.setRect(0, 0, dw, dh)
+
     def on_symbol_value_changed(self, index: int, x: int, y: int, w: int, h: int):
-        """Handle symbol boundary change (not used in new approach)."""
+        """Handle symbol boundary change (legacy - not used in new approach)."""
         pass
 
     def prev_file(self):
