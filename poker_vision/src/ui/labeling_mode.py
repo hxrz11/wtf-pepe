@@ -1261,11 +1261,26 @@ class LabelingMode(QWidget):
             )
             return
 
+        # Determine location based on current category
+        category_index = self.category_combo.currentIndex()
+        if category_index == 1:  # Hand ranks
+            location = 'hand'
+            location_name = 'руки'
+        elif category_index == 3:  # Board ranks
+            location = 'board'
+            location_name = 'стола'
+        else:
+            location = 'hand'
+            location_name = ''
+
         # Save template (will auto-convert to grayscale)
-        result = self.template_manager.save_card_rank_template(self.current_image, rank)
+        result = self.template_manager.save_card_rank_template(self.current_image, rank, location)
 
         if result:
-            QMessageBox.information(self, "Сохранено", f"Сохранён шаблон ранга {rank}")
+            msg = f"Сохранён шаблон ранга {rank}"
+            if location_name:
+                msg += f" ({location_name})"
+            QMessageBox.information(self, "Сохранено", msg)
             self.rank_input.clear()
             self.next_file()
             self.update_statistics()
@@ -1288,14 +1303,29 @@ class LabelingMode(QWidget):
             )
             return
 
+        # Determine location based on current category
+        category_index = self.category_combo.currentIndex()
+        if category_index == 2:  # Hand suits
+            location = 'hand'
+            location_name = 'руки'
+        elif category_index == 4:  # Board suits
+            location = 'board'
+            location_name = 'стола'
+        else:
+            location = 'hand'
+            location_name = ''
+
         # Save template (will auto-convert to grayscale)
-        result = self.template_manager.save_card_suit_template(self.current_image, suit)
+        result = self.template_manager.save_card_suit_template(self.current_image, suit, location)
 
         suit_names = {'c': '♣', 'd': '♦', 'h': '♥', 's': '♠'}
         suit_display = suit_names.get(suit, suit)
 
         if result:
-            QMessageBox.information(self, "Сохранено", f"Сохранён шаблон масти {suit_display} ({suit})")
+            msg = f"Сохранён шаблон масти {suit_display} ({suit})"
+            if location_name:
+                msg += f" ({location_name})"
+            QMessageBox.information(self, "Сохранено", msg)
             self.next_file()
             self.update_statistics()
         else:
@@ -1652,13 +1682,17 @@ class LabelingMode(QWidget):
         stats = self.template_manager.get_statistics()
 
         cards_existing, cards_total = self.template_manager.get_cards_completion()
-        ranks_existing, ranks_total = self.template_manager.get_ranks_completion()
-        suits_existing, suits_total = self.template_manager.get_suits_completion()
+        hand_ranks_existing, hand_ranks_total = self.template_manager.get_ranks_completion('hand')
+        hand_suits_existing, hand_suits_total = self.template_manager.get_suits_completion('hand')
+        board_ranks_existing, board_ranks_total = self.template_manager.get_ranks_completion('board')
+        board_suits_existing, board_suits_total = self.template_manager.get_suits_completion('board')
 
         stats_text = "Статистика шаблонов:\n"
         stats_text += f"  Карты (полные): {cards_existing}/{cards_total}\n"
-        stats_text += f"  Ранги: {ranks_existing}/{ranks_total}\n"
-        stats_text += f"  Масти: {suits_existing}/{suits_total}\n"
+        stats_text += f"  Ранги руки: {hand_ranks_existing}/{hand_ranks_total}\n"
+        stats_text += f"  Масти руки: {hand_suits_existing}/{hand_suits_total}\n"
+        stats_text += f"  Ранги стола: {board_ranks_existing}/{board_ranks_total}\n"
+        stats_text += f"  Масти стола: {board_suits_existing}/{board_suits_total}\n"
         stats_text += f"  Цифры: {stats.get('digits', 0)}\n"
         stats_text += f"  Комбинации: {stats.get('combos', 0)}/{len(self.template_manager.COMBO_NAMES)}\n"
         stats_text += f"  Маркеры: {stats.get('markers', 0)}/{len(self.template_manager.MARKER_NAMES)}\n"

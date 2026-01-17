@@ -43,11 +43,17 @@ class TemplateManager:
 
     def _ensure_directories(self) -> None:
         """Ensure all template subdirectories exist."""
-        subdirs = ['cards', 'card_ranks', 'card_suits', 'digits', 'combos',
+        subdirs = ['cards', 'digits', 'combos',
                   'letters_lat', 'letters_cyr', 'special', 'markers']
 
         for subdir in subdirs:
             (self.templates_dir / subdir).mkdir(parents=True, exist_ok=True)
+
+        # Create card_ranks and card_suits with hand/board subdirectories
+        (self.templates_dir / 'card_ranks' / 'hand').mkdir(parents=True, exist_ok=True)
+        (self.templates_dir / 'card_ranks' / 'board').mkdir(parents=True, exist_ok=True)
+        (self.templates_dir / 'card_suits' / 'hand').mkdir(parents=True, exist_ok=True)
+        (self.templates_dir / 'card_suits' / 'board').mkdir(parents=True, exist_ok=True)
 
     def save_card_template(self, image: np.ndarray, rank: str, suit: str) -> Optional[Path]:
         """Save card template.
@@ -117,17 +123,21 @@ class TemplateManager:
         existing = len(self.get_existing_cards())
         return (existing, total)
 
-    def save_card_rank_template(self, image: np.ndarray, rank: str) -> Optional[Path]:
+    def save_card_rank_template(self, image: np.ndarray, rank: str, location: str = 'hand') -> Optional[Path]:
         """Save card rank template (grayscale).
 
         Args:
             image: Rank image (will be converted to grayscale if needed)
             rank: Card rank (2-9, T, J, Q, K, A)
+            location: 'hand' or 'board'
 
         Returns:
             Path to saved template or None if failed
         """
         if rank.upper() not in self.CARD_RANKS:
+            return None
+
+        if location not in ['hand', 'board']:
             return None
 
         # Convert to grayscale if needed
@@ -139,22 +149,26 @@ class TemplateManager:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
 
         filename = f"{rank.upper()}_{timestamp}.png"
-        output_path = self.templates_dir / 'card_ranks' / filename
+        output_path = self.templates_dir / 'card_ranks' / location / filename
 
         success = cv2.imwrite(str(output_path), image)
         return output_path if success else None
 
-    def save_card_suit_template(self, image: np.ndarray, suit: str) -> Optional[Path]:
+    def save_card_suit_template(self, image: np.ndarray, suit: str, location: str = 'hand') -> Optional[Path]:
         """Save card suit template (grayscale).
 
         Args:
             image: Suit image (will be converted to grayscale if needed)
             suit: Card suit (c, d, h, s)
+            location: 'hand' or 'board'
 
         Returns:
             Path to saved template or None if failed
         """
         if suit.lower() not in self.CARD_SUITS:
+            return None
+
+        if location not in ['hand', 'board']:
             return None
 
         # Convert to grayscale if needed
@@ -166,18 +180,21 @@ class TemplateManager:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
 
         filename = f"{suit.lower()}_{timestamp}.png"
-        output_path = self.templates_dir / 'card_suits' / filename
+        output_path = self.templates_dir / 'card_suits' / location / filename
 
         success = cv2.imwrite(str(output_path), image)
         return output_path if success else None
 
-    def get_existing_ranks(self) -> List[str]:
+    def get_existing_ranks(self, location: str = 'hand') -> List[str]:
         """Get list of existing rank templates.
+
+        Args:
+            location: 'hand' or 'board'
 
         Returns:
             List of unique ranks that have templates
         """
-        ranks_dir = self.templates_dir / 'card_ranks'
+        ranks_dir = self.templates_dir / 'card_ranks' / location
         if not ranks_dir.exists():
             return []
 
@@ -190,13 +207,16 @@ class TemplateManager:
 
         return sorted(list(ranks), key=lambda r: self.CARD_RANKS.index(r))
 
-    def get_existing_suits(self) -> List[str]:
+    def get_existing_suits(self, location: str = 'hand') -> List[str]:
         """Get list of existing suit templates.
+
+        Args:
+            location: 'hand' or 'board'
 
         Returns:
             List of unique suits that have templates
         """
-        suits_dir = self.templates_dir / 'card_suits'
+        suits_dir = self.templates_dir / 'card_suits' / location
         if not suits_dir.exists():
             return []
 
@@ -209,24 +229,30 @@ class TemplateManager:
 
         return sorted(list(suits))
 
-    def get_ranks_completion(self) -> Tuple[int, int]:
+    def get_ranks_completion(self, location: str = 'hand') -> Tuple[int, int]:
         """Get rank templates completion status.
+
+        Args:
+            location: 'hand' or 'board'
 
         Returns:
             Tuple of (existing_count, total_count)
         """
         total = len(self.CARD_RANKS)  # 13
-        existing = len(self.get_existing_ranks())
+        existing = len(self.get_existing_ranks(location))
         return (existing, total)
 
-    def get_suits_completion(self) -> Tuple[int, int]:
+    def get_suits_completion(self, location: str = 'hand') -> Tuple[int, int]:
         """Get suit templates completion status.
+
+        Args:
+            location: 'hand' or 'board'
 
         Returns:
             Tuple of (existing_count, total_count)
         """
         total = len(self.CARD_SUITS)  # 4
-        existing = len(self.get_existing_suits())
+        existing = len(self.get_existing_suits(location))
         return (existing, total)
 
     def save_combo_template(self, image: np.ndarray, combo_name: str) -> Optional[Path]:
