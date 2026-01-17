@@ -43,6 +43,5 @@
   "name_2": {"x": 0, "y": 0, "w": 0, "h": 0, "type": "text_mixed"},
   "name_3": {"x": 0, "y": 0, "w": 0, "h": 0, "type": "text_mixed"},
   "name_4": {"x": 0, "y": 0, "w": 0, "h": 0, "type": "text_mixed"},
-  "name_5": {"x": 0, "y": 0, "w": 0, "h": 0, "type": "text_mixed"},
-  "match_id": {"x": 0, "y": 0, "w": 0, "h": 0, "type": "text_mixed"}
+  "name_5": {"x": 0, "y": 0, "w": 0, "h": 0, "type": "text_mixed"}
 }
