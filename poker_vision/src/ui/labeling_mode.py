@@ -384,6 +384,14 @@ class LabelingMode(QWidget):
 
         card_layout.addLayout(input_layout)
 
+        # Recognition status for cards
+        self.card_recognition_label = QLabel("")
+        self.card_recognition_label.setAlignment(Qt.AlignCenter)
+        self.card_recognition_label.setStyleSheet("background-color: #e8f5e9; padding: 8px; border: 1px solid #4caf50; border-radius: 4px;")
+        self.card_recognition_label.setWordWrap(True)
+        self.card_recognition_label.setVisible(False)
+        card_layout.addWidget(self.card_recognition_label)
+
         self.card_widget.hide()
         self.label_layout.addWidget(self.card_widget)
 
@@ -498,6 +506,13 @@ class LabelingMode(QWidget):
         font.setBold(True)
         self.selected_symbol_label.setFont(font)
         symbol_edit_layout.addWidget(self.selected_symbol_label)
+
+        # Recognition status
+        self.recognition_status_label = QLabel("")
+        self.recognition_status_label.setAlignment(Qt.AlignCenter)
+        self.recognition_status_label.setStyleSheet("color: #008800; font-weight: bold;")
+        self.recognition_status_label.setWordWrap(True)
+        symbol_edit_layout.addWidget(self.recognition_status_label)
 
         edit_form = QFormLayout()
 
@@ -662,8 +677,18 @@ class LabelingMode(QWidget):
             if existing_card:
                 self.card_input.setText(existing_card)
                 self.card_input.setStyleSheet("background-color: #ffffcc;")
+                # Show recognition status with suit icon
+                suit_icons = {'c': '♣', 'd': '♦', 'h': '♥', 's': '♠'}
+                suit = existing_card[1] if len(existing_card) == 2 else ''
+                suit_icon = suit_icons.get(suit, '')
+                self.card_recognition_label.setText(f"✓ Распознано: {existing_card[0]}{suit_icon} ({existing_card})")
+                self.card_recognition_label.setVisible(True)
+            else:
+                self.card_input.setStyleSheet("")
+                self.card_recognition_label.setVisible(False)
         else:
             self.card_input.setStyleSheet("")
+            self.card_recognition_label.setVisible(False)
 
         self.current_image = load_image(filepath)
 
@@ -718,22 +743,36 @@ class LabelingMode(QWidget):
             self.image_scene.removeItem(rect)
         self.symbol_rects.clear()
 
+        # Try to auto-recognize symbols and place rectangles
+        recognized_positions = self.auto_recognize_symbols(text)
+
         # Get default size
         w = self.symbol_width_spin.value()
         h = self.symbol_height_spin.value()
 
         # Create rectangles for each symbol
-        # Position them in a row at the top of the image
         img_h, img_w = self.current_image.shape[:2]
         start_x = 10
         start_y = 10
         spacing = 5
 
+        recognized_count = 0
+
         for i, char in enumerate(text):
-            x = (start_x + i * (w + spacing)) * self.display_scale
-            y = start_y * self.display_scale
-            scaled_w = w * self.display_scale
-            scaled_h = h * self.display_scale
+            if i in recognized_positions and recognized_positions[i] is not None:
+                # Use recognized position
+                pos = recognized_positions[i]
+                x = pos['x'] * self.display_scale
+                y = pos['y'] * self.display_scale
+                scaled_w = pos['w'] * self.display_scale
+                scaled_h = pos['h'] * self.display_scale
+                recognized_count += 1
+            else:
+                # Use default position (top of image)
+                x = (start_x + i * (w + spacing)) * self.display_scale
+                y = start_y * self.display_scale
+                scaled_w = w * self.display_scale
+                scaled_h = h * self.display_scale
 
             rect = DraggableSymbolRect(x, y, scaled_w, scaled_h, i)
             self.image_scene.addItem(rect)
@@ -744,13 +783,89 @@ class LabelingMode(QWidget):
         self.symbol_list.clear()
 
         for i, char in enumerate(text):
-            item = QListWidgetItem(f"{i+1}. '{char}'")
+            recognized = " ✓" if i in recognized_positions and recognized_positions[i] is not None else ""
+            item = QListWidgetItem(f"{i+1}. '{char}'{recognized}")
             self.symbol_list.addItem(item)
 
-        info = f"Создано {len(text)} регионов. Перетащите каждый регион на соответствующий символ."
+        if recognized_count > 0:
+            info = f"Создано {len(text)} регионов. Автоматически распознано: {recognized_count}/{len(text)}. Переместите нераспознанные регионы."
+        else:
+            info = f"Создано {len(text)} регионов. Перетащите каждый регион на соответствующий символ."
         self.symbol_info_label.setText(info)
 
         self.text_save_btn.setEnabled(True)
+
+    def auto_recognize_symbols(self, text: str) -> Dict[int, Optional[Dict]]:
+        """Auto-recognize symbols and find their positions.
+
+        Args:
+            text: Text to recognize
+
+        Returns:
+            Dictionary mapping symbol index to position dict {x, y, w, h} or None
+        """
+        if self.current_image is None:
+            return {}
+
+        positions = {}
+
+        for i, char in enumerate(text):
+            # Determine category
+            if char.isdigit() or char == '.':
+                category = 'digits'
+            elif char.isalpha():
+                if ord(char) < 128:
+                    category = 'letters_lat'
+                else:
+                    category = 'letters_cyr'
+            else:
+                category = 'special'
+
+            # Try to find template for this character
+            category_dir = self.config.templates_dir / category
+            if not category_dir.exists():
+                positions[i] = None
+                continue
+
+            char_files = list(category_dir.glob(f'{char}_*.png'))
+            if not char_files:
+                positions[i] = None
+                continue
+
+            # Try template matching with each template variant
+            best_match_score = 0.0
+            best_match_loc = None
+            best_template_size = None
+
+            img_gray = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2GRAY) if len(self.current_image.shape) == 3 else self.current_image
+
+            for template_file in char_files:
+                template = cv2.imread(str(template_file), cv2.IMREAD_GRAYSCALE)
+                if template is None:
+                    continue
+
+                # Template matching
+                result = cv2.matchTemplate(img_gray, template, cv2.TM_CCOEFF_NORMED)
+                min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+
+                if max_val > best_match_score:
+                    best_match_score = max_val
+                    best_match_loc = max_loc
+                    best_template_size = (template.shape[1], template.shape[0])  # (w, h)
+
+            # If good match found (>70%), use it
+            if best_match_score > 0.7 and best_match_loc is not None:
+                positions[i] = {
+                    'x': best_match_loc[0],
+                    'y': best_match_loc[1],
+                    'w': best_template_size[0],
+                    'h': best_template_size[1],
+                    'score': best_match_score
+                }
+            else:
+                positions[i] = None
+
+        return positions
 
     def apply_symbol_size_to_all(self):
         """Apply default symbol size to all rectangles."""
@@ -776,10 +891,13 @@ class LabelingMode(QWidget):
 
         # Update editor with current symbol values
         rect = self.symbol_rects[index]
-        scene_pos = rect.scenePos()
+
+        # Get position - use pos() which includes transformation
+        scene_pos = rect.pos()
         rect_geom = rect.rect()
 
         # Convert to original image coordinates
+        # pos() gives us the item's position in parent coordinates (scene)
         x = int(scene_pos.x() / self.display_scale)
         y = int(scene_pos.y() / self.display_scale)
         w = int(rect_geom.width() / self.display_scale)
@@ -788,6 +906,9 @@ class LabelingMode(QWidget):
         # Update label
         char = self.current_text[index] if index < len(self.current_text) else '?'
         self.selected_symbol_label.setText(f"Символ #{index + 1}: '{char}'")
+
+        # Show recognition status if available
+        self.recognition_status_label.setText("")
 
         # Block signals to avoid recursion
         self.symbol_x_spin.blockSignals(True)
@@ -1198,17 +1319,15 @@ class LabelingMode(QWidget):
         symbol_images = []
 
         for i, (char, rect) in enumerate(zip(text, self.symbol_rects)):
-            # Get rectangle position (in display coordinates)
-            rect_geom = rect.rect()
-            x = int(rect_geom.x() / self.display_scale)
-            y = int(rect_geom.y() / self.display_scale)
-            w = int(rect_geom.width() / self.display_scale)
-            h = int(rect_geom.height() / self.display_scale)
+            # Get rectangle position and size
+            scene_pos = rect.pos()  # Position in scene coordinates
+            rect_geom = rect.rect()  # Rectangle geometry
 
-            # Get position in scene coordinates
-            scene_pos = rect.scenePos()
+            # Convert to original image coordinates
             x = int(scene_pos.x() / self.display_scale)
             y = int(scene_pos.y() / self.display_scale)
+            w = int(rect_geom.width() / self.display_scale)
+            h = int(rect_geom.height() / self.display_scale)
 
             # Ensure bounds are within image
             img_h, img_w = self.current_image.shape[:2]
