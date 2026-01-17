@@ -1,6 +1,3 @@
-# User-specific region configuration - should not be tracked
-poker_vision/regions.json
-
 # Python
 __pycache__/
 *.py[cod]
